@@ -15,7 +15,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 🌟 تم تحديث الأسماء والرموز هنا لتطابق صورة البوت ولوحة التحكم تماماً 🌟 ---
+# --- الأسماء والرموز المطابقة للبوت ولوحة التحكم ---
 SUBJECTS = {
     "📐 الرياضيات": "math",
     "⚡ الفيزياء": "phys",
@@ -49,7 +49,7 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المتوافقة مع التصاميم ---
+# --- لوحات المفاتيح السفلية المتوافقة ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("📚 تصفح المواد الدراسية"), KeyboardButton("البكلوريا العلمي 🔬")],
@@ -57,7 +57,6 @@ def get_main_keyboard():
     ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
 
 def get_subjects_keyboard():
-    # ترتيب الأزرار بنفس مظهر الصورة المرفوعة تماماً (يمين ويسار)
     return ReplyKeyboardMarkup([
         ["⚡ الفيزياء", "📐 الرياضيات"],
         ["🧬 العلوم", "🧪 الكيمياء"],
@@ -99,14 +98,12 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
-# --- منطق معالجة الرسائل المرن والمستقر ---
+# --- منطق معالجة الرسائل المستقر ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
-    
     await update.effective_message.reply_text(
-        "👋 **أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.**\n\n"
-        "تم تحديث الأيقونات وإصلاح رابط العداد التنازلي بنجاح! يرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
+        "👋 **أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.**\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
@@ -115,7 +112,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # فحص مرن للقائمة الرئيسية والعودة
     if "العودة للقائمة الرئيسية" in text or text == "🏠 الرئيسية":
         user_data.clear()
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
@@ -129,7 +125,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # فحص اختيار المادة بالاعتماد على الاسم الأساسي لتفادي أي تغيير في الرموز التعبيرية
+    # فحص اختيار المادة
     matched_subject = None
     for k in SUBJECTS.keys():
         pure_subject_name = k.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
@@ -143,7 +139,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✨ لقد فتحت الآن رفوف مادة:\n🎯 *{matched_subject}*\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار بالأسفل:", reply_markup=get_categories_keyboard(matched_subject), parse_mode="Markdown")
         return
 
-    # دخول أرشيف أسئلة السنوات
     if "أسئلة السنوات السابقة" in text or "📂 أسئلة السنوات" in text:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ يرجى اختيار المادة أولاً.", reply_markup=get_subjects_keyboard())
@@ -151,7 +146,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📅 اختر طريقة عرض الفرز لأسئلة السنوات السابقة:", reply_markup=get_exams_keyboard())
         return
 
-    # العودة لأقسام المادة
     if "العودة لأقسام المادة" in text:
         if "current_subject_name" not in user_data:
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
@@ -160,7 +154,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 *{subject_name}*", reply_markup=get_categories_keyboard(subject_name), parse_mode="Markdown")
         return
 
-    # جلب ومعالجة المحتويات من قاعدة البيانات (فحص مرن للمطابقة مع أسماء التصنيفات)
+    # جلب ومعالجة المحتويات من قاعدة البيانات بالتوافق مع لوحة تحكم Lovable
     matched_category_code = None
     cat_map = {
         "حسب السنة": "exams_year",
@@ -198,21 +192,39 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم.")
             return
 
+        # 🌟 معالجة وإرسال الملفات مع الحماية البرمجية ومطابقة الحقول الديناميكية 🌟
         for f in files_list:
-            caption_text = f"📄 {f['file_name']}"
-            if f.get("reciter_name"):
-                caption_text += f"\n🎙️ بصوت القارئ: {f['reciter_name']}"
+            try:
+                # جلب اسم الملف بشكل مرن حسب مسميات الأعمدة المتوقعة
+                file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف بدون اسم"
+                caption_text = f"📄 {file_name}"
+                if f.get("reciter_name"):
+                    caption_text += f"\n🎙️ بصوت القارئ: {f['reciter_name']}"
                 
-            if f.get("file_id"):
-                if matched_category_code in ["hadith_audio", "quran_audio"]:
-                    await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f["file_id"], caption=caption_text)
+                # فحص الحقول المختلفة للرابط لضمان التوافق الكامل مع Lovable DB
+                f_id = f.get("file_id")
+                f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
+                
+                if f_id:
+                    if matched_category_code in ["hadith_audio", "quran_audio"]:
+                        await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
+                    else:
+                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
+                elif f_url:
+                    # محاولة إرسال الرابط كملف مباشر، وفي حال تعذر ذلك يتم إرساله كرابط نصي فوراً
+                    try:
+                        if matched_category_code in ["hadith_audio", "quran_audio"]:
+                            await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
+                        else:
+                            await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
+                    except Exception:
+                        await update.message.reply_text(f"{caption_text}\n\n🔗 **رابط التحميل المباشر للمستند:**\n{f_url}", parse_mode="Markdown")
                 else:
-                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f["file_id"], caption=caption_text)
-            elif f.get("file_url"):
-                if matched_category_code in ["hadith_audio", "quran_audio"]:
-                    await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f["file_url"], caption=caption_text)
-                else:
-                    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{caption_text}\n🔗 رابط مباشر للتحميل: {f['file_url']}")
+                    # في حال عدم العثور على أي حقل رابط، يطبع أسماء الأعمدة للمساعدة في معرفة هيكلة الجدول
+                    await update.message.reply_text(f"⚠️ تم العثور على الملف ولكن لم يتم تحديد عمود الرابط بنجاح.\nالأعمدة الحالية في جدولك هي:\n`{list(f.keys())}`", parse_mode="Markdown")
+            except Exception as row_error:
+                print(f"Error parsing row: {row_error}")
+                continue
         return
 
     await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
@@ -228,7 +240,7 @@ async def main():
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Bot is completely synchronized with Lovable layout!")
+    print("🤖 Bot is completely synchronized with Lovable layout and database fields!")
     
     try:
         while True:
@@ -243,4 +255,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-        
+            
