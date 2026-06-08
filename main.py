@@ -12,27 +12,30 @@ from supabase import create_client, Client
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
-# استخدام منفذ السيرفر لبناء رابط العداد بدقة
+# سحب المنفذ والروابط من السيرفر تلقائياً وبأعلى دقة لمنع خطأ الـ Not Found
 PORT = int(os.environ.get("PORT", "8080"))
-PUBLIC_URL = os.environ.get("RAILWAY_PUBLIC_URL", "")
+RAILWAY_URL = os.environ.get("RAILWAY_PUBLIC_URL", os.environ.get("RAILWAY_STATIC_URL", ""))
 
-# إذا لم يقم السيرفر بتوليد الرابط العام، نعتمد على محرك محلي مرن للـ WebApp
-if not PUBLIC_URL:
-    PUBLIC_URL = f"https://sina-bot-production.up.railway.app" # رابط افتراضي ثابت لنطاق مشروعك
-if not PUBLIC_URL.startswith("https://"):
-    PUBLIC_URL = f"https://{PUBLIC_URL}"
+if RAILWAY_URL:
+    if not RAILWAY_URL.startswith("http://") and not RAILWAY_URL.startswith("https://"):
+        PUBLIC_URL = f"https://{RAILWAY_URL}"
+    else:
+        PUBLIC_URL = RAILWAY_URL
+else:
+    # حل بديل ذكي في حال لم تتوفر المتغيرات تلقائياً
+    PUBLIC_URL = "https://sina-bot-production.up.railway.app"
 
-SUPABASE_URL = "https://syrpxdwypsivlmwmmbu.supabase.co"
+SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- المصفوفات الثابتة للمواد والأقسام بالأيقونات الجديدة والأنيقة ---
+# --- المصفوفات الثابتة للمواد بالأيقونات والأسماء المطابقة للتصميم الجديد ---
 SUBJECTS = {
-    "📐 الرياضيات الرسمية": "math",
-    "⚡ الفيزياء الحديثة": "phys",
-    "🧪 الكيمياء العامة": "chem",
-    "🧬 العلوم الحياتية": "science",
+    "📐 الرياضيات": "math",
+    "⚡ الفيزياء": "phys",
+    "🧪 الكيمياء": "chem",
+    "🧬 العلوم": "science",
     "🕌 التربية الإسلامية": "islamic",
     "📚 اللغة العربية": "arabic",
     "🇬🇧 اللغة الإنجليزية": "english",
@@ -118,11 +121,11 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية الذكية بالأيقونات المحدثة ---
+# --- لوحات المفاتيح السفلية الذكية بالأيقونات الجديدة الجذابة ---
 def get_main_keyboard():
     webapp_url = f"{PUBLIC_URL}/countdown"
     return ReplyKeyboardMarkup([
-        [KeyboardButton("⏳ العداد التنازلي للامتحانات", web_app=WebAppInfo(url=webapp_url)), KeyboardButton("📚 تصفح المواد الدراسية")],
+        [KeyboardButton("⏳ العداد التنازلي", web_app=WebAppInfo(url=webapp_url)), KeyboardButton("📚 تصفح المواد الدراسية")],
         [KeyboardButton("📢 طلب إعلان"), KeyboardButton("💬 تواصل مع الإدارة")]
     ], resize_keyboard=True, input_field_placeholder="القائمة الرئيسية...")
 
@@ -134,7 +137,7 @@ def get_subjects_keyboard():
         [keys[4], keys[5]],
         [keys[6], keys[7]],
         ["🔙 العودة للقائمة الرئيسية"]
-    ], resize_keyboard=True, input_field_placeholder="اختر المادة الدراسية الأنيقة...")
+    ], resize_keyboard=True, input_field_placeholder="اختر المادة الدراسية...")
 
 def get_categories_keyboard(subject_name):
     keyboard = [
@@ -161,7 +164,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.effective_message.reply_text(
         "👋 أهلاً بك في *بوت المكتبة التعليمية* لطلاب البكالوريا العلمية.\n\n"
-        "تم تحديث الأيقونات وإصلاح مؤقت العداد بنجاح! تصفح المحتوى عبر الأزرار أدناه:",
+        "تم تحديث الأيقونات الرسومية وإصلاح رابط العداد التنازلي بنجاح! يرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
@@ -176,7 +179,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif text == "📚 تصفح المواد الدراسية" or text == "🔙 تغيير المادة المحددة":
-        await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات المحدثة:", reply_markup=get_subjects_keyboard())
+        await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات الرسومية المحدثة الأنيقة:", reply_markup=get_subjects_keyboard())
         return
 
     elif text == "📢 طلب إعلان" or text == "💬 تواصل مع الإدارة":
@@ -198,7 +201,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📅 اختر طريقة عرض الفرز لأسئلة السنوات السابقة:", reply_markup=get_exams_keyboard())
         return
 
-    # جلب ومعالجة المحتويات من الـ Supabase للوحة التحكم
+    # جلب ومعالجة المحتويات من قاعدة البيانات فوراً
     if text in CATEGORIES or text in ["📅 حسب السنة", "📝 كاملة الشرح", "🔍 حسب الأبحاث"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
@@ -274,4 +277,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-    
+        
