@@ -18,7 +18,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # --- 🌟 المواد بالأسماء العربية والرموز الأيقونية الفخمة 🌟 ---
 SUBJECTS = {
     "الرياضيات 📐": "math",
-    "الفيزياء ⚛️": "phys",
+    "الفيزياء 🧲": "phys",
     "الكيمياء ⚗️": "chem",
     "علم الأحياء 🔬": "science",
     "التربية الإسلامية 🕋": "islamic",
@@ -49,10 +49,10 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المنسقة بعد إزالة العداد التنازلي ---
+# --- لوحات المفاتيح السفلية المنسقة هندسياً ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
-        [KeyboardButton("🗂️ تصفح المواد الدراسية"), KeyboardButton("📢 طلب إعلان للمكتبة")],
+        [KeyboardButton("البكلوريا العلمي 🔬"), KeyboardButton("📢 طلب إعلان للمكتبة")],
         [KeyboardButton("💬 تواصل مع الإدارة")]
     ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
 
@@ -84,6 +84,25 @@ def get_exams_keyboard():
         ["🔙 العودة لأقسام المادة"]
     ], resize_keyboard=True, input_field_placeholder="اختر طريقة فرز الأسئلة...")
 
+# --- ميزة التقاط معرفات الملفات تلقائياً (File ID Catcher) ---
+async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # التقاط معرف ملفات الـ PDF
+    if update.message.document:
+        f_id = update.message.document.file_id
+        await update.message.reply_text(
+            f"📄 **تم التقاط معرف المستند بنجاح!**\n\n"
+            f"اضغط عليه للنسخ فوراً:\n`{f_id}`", 
+            parse_mode="Markdown"
+        )
+    # التقاط معرف ملفات الصوت
+    elif update.message.audio:
+        f_id = update.message.audio.file_id
+        await update.message.reply_text(
+            f"🔊 **تم التقاط معرف الملف الصوتي بنجاح!**\n\n"
+            f"اضغط عليه للنسخ فوراً:\n`{f_id}`", 
+            parse_mode="Markdown"
+        )
+
 # --- منطق معالجة الرسائل المستقر والقوي كلياً ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
@@ -91,7 +110,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.effective_message.reply_text(
         "👋 **أهلاً بك في بوت المكتبة التعليمية المطور!**\n\n"
-        "✨ تصفح كافة أقسام وملفات المواد الدراسية بسهولة عبر الأزرار الأيقونية الفاخرة أدناه:",
+        "✨ اضغط على زر البكلوريا العلمي في القائمة بالأسفل لبدء تصفح المحتوى والملفات المحدثة:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
@@ -105,7 +124,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
         return
 
-    elif text in ["🗂️ تصفح المواد الدراسية", "📚 تصفح المواد الدراسية", "🔙 تغيير المادة المحددة"]:
+    elif text in ["البكلوريا العلمي 🔬", "🗂️ تصفح المواد الدراسية", "📚 تصفح المواد الدراسية", "🔙 تغيير المادة المحددة"]:
         await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من القائمة الأيقونية المحدثة:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
         return
 
@@ -188,12 +207,17 @@ async def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
+    
+    # 🌟 استقبال الملفات والصوتيات واستخراج معرفاتها أولاً
+    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
+    
+    # استقبال نصوص لوحة التحكم والأزرار
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Educational Library Bot is now running perfectly!")
+    print("🤖 Educational Library Bot is now running perfectly with File Catcher!")
     
     try:
         while True:
@@ -208,4 +232,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-        
+            
