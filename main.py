@@ -393,8 +393,12 @@ async def complete_file_save(message, context, reciter_name=None):
 
 # --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
 async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID: return
+    if update.effective_user.id != ADMIN_ID: 
+        return
 
+    file_id = None
+    file_name = "ملف_غير_معروف"
+
+    # التحقق إذا كان المرفق ملفاً عاديًا (PDF، نوطة، إلخ)
     if update.message.document:
-        file_id = update.message.document.file_id
-        file_name = update.message.documen
+        fi
