@@ -6,7 +6,7 @@ from telegram.ext import (
 )
 from supabase import create_client, Client
 
-# --- المتغيرات البيئية وبيانات الربط من ملف الـ env ---
+# --- المتغيرات البيئية وبيانات الربط ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
@@ -15,7 +15,6 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- الأسماء والرموز المطابقة للبوت ولوحة التحكم ---
 SUBJECTS = {
     "📐 الرياضيات": "math",
     "⚡ الفيزياء": "phys",
@@ -27,19 +26,6 @@ SUBJECTS = {
     "🇫🇷 اللغة الفرنسية": "french",
 }
 
-CATEGORIES = {
-    "📖 الكتاب المدرسي": "book",
-    "📝 الملخصات الذهنية": "notes",
-    "📒 النوط الشاملة": "notebook",
-    "💡 ملاحظات تذكيرية": "remarks",
-    "📅 أسئلة الدورات (حسب السنة)": "exams_year",
-    "📝 أسئلة الدورات (كاملة الشرح)": "exams_all",
-    "🔍 أسئلة الدورات (حسب الأبحاث)": "exams_topic",
-    "🔊 الأحاديث الشريفة": "hadith_audio",
-    "🔊 الآيات القرآنية": "quran_audio"
-}
-
-# تحويل دالة التسجيل لتصبح متوافقة مع الـ Async عبر الخيوط المنفصلة
 async def register_student_to_supabase(user):
     try:
         await asyncio.to_thread(
@@ -52,7 +38,6 @@ async def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المتوافقة ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("📚 تصفح المواد الدراسية"), KeyboardButton("البكلوريا العلمي 🔬")],
@@ -86,22 +71,14 @@ def get_exams_keyboard():
         ["🔙 العودة لأقسام المادة"]
     ], resize_keyboard=True, input_field_placeholder="اختر طريقة فرز الأسئلة...")
 
-# --- ميزة التقاط معرفات الملفات تلقائياً ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.document:
         f_id = update.message.document.file_id
-        await update.message.reply_text(
-            f"📄 **تم التقاط معرف المستند بنجاح!**\n\n`{f_id}`", 
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text(f"📄 **تم التقاط معرف المستند بنجاح!**\n\n`{f_id}`", parse_mode="Markdown")
     elif update.message.audio:
         f_id = update.message.audio.file_id
-        await update.message.reply_text(
-            f"🔊 **تم التقاط معرف الملف الصوتي بنجاح!**\n\n`{f_id}`", 
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text(f"🔊 **تم التقاط معرف الملف الصوتي بنجاح!**\n\n`{f_id}`", parse_mode="Markdown")
 
-# --- منطق معالجة الرسائل المستقر ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
@@ -128,7 +105,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # فحص اختيار المادة
+    # فحص المادة المحددة
     matched_subject = None
     for k in SUBJECTS.keys():
         pure_subject_name = k.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
@@ -157,8 +134,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 *{subject_name}*", reply_markup=get_categories_keyboard(subject_name), parse_mode="Markdown")
         return
 
-    # جلب ومعالجة المحتويات من قاعدة البيانات بالتوافق مع لوحة تحكم Lovable
-    matched_category_code = None
+    # خريطة التصنيفات
     cat_map = {
         "حسب السنة": "exams_year",
         "كاملة الشرح": "exams_all",
@@ -171,6 +147,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "الآيات": "quran_audio"
     }
     
+    matched_category_code = None
     for k, v in cat_map.items():
         if k in text:
             matched_category_code = v
@@ -182,88 +159,67 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         subject_code = user_data["current_subject_code"]
-        await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
+        loading_msg = await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
         
         try:
-            # 🚀 حل التجميد: تشغيل طلب الاستعلام في Thread خلفي منفصل
-            response = await asyncio.to_thread(
-                lambda: supabase.table("materials")
-                .select("*")
-                .eq("subject", subject_code)
-                .eq("category", matched_category_code)
-                .execute()
+            # 🚀 إضافة حماية الـ Timeout لعدم التعليق نهائياً (بحد أقصى 12 ثانية)
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    lambda: supabase.table("materials")
+                    .select("*")
+                    .eq("subject", subject_code)
+                    .eq("category", matched_category_code)
+                    .execute()
+                ),
+                timeout=12.0
             )
             files_list = response.data if response.data else []
+        except asyncio.TimeoutError:
+            await loading_msg.edit_text("⚠️ **انتهت مهلة الطلب!** يستغرق السيرفر وقتاً طويلاً للاستجابة. يرجى التأكد من صحة بيانات اتصال قاعدة البيانات في ملف الـ Env أو المحاولة لاحقاً.")
+            return
         except Exception as e:
-            await update.message.reply_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ:**\n\n`{str(e)}`", parse_mode="Markdown")
+            await loading_msg.edit_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ:**\n\n`{str(e)}`", parse_mode="Markdown")
             return
         
         if not files_list:
-            await update.message.reply_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم.")
+            await loading_msg.edit_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم لمادة {user_data.get('current_subject_name')}.")
             return
 
-        sent_count = 0
-        # 🌟 معالجة وإرسال الملفات مع الحماية البرمجية 🌟
+        await loading_msg.delete() # حذف رسالة التحميل عند النجاح
+        
+        # إرسال الملفات المجلوبة
         for f in files_list:
             try:
                 file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف بدون اسم"
                 caption_text = f"📄 {file_name}"
-                if f.get("reciter_name"):
-                    caption_text += f"\n🎙️ بصوت القارئ: {f['reciter_name']}"
                 
                 f_id = f.get("file_id")
                 f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
                 
                 if f_id:
-                    try:
-                        if matched_category_code in ["hadith_audio", "quran_audio"]:
-                            await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
-                        else:
-                            await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
-                        sent_count += 1
-                    except Exception as telegram_err:
-                        # إذا فشل الـ file_id، نحاول فوراً استخدام الرابط المباشر إن وجد كخيار بديل
-                        if f_url:
-                            try:
-                                if matched_category_code in ["hadith_audio", "quran_audio"]:
-                                    await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
-                                else:
-                                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
-                                sent_count += 1
-                            except Exception:
-                                await update.message.reply_text(f"📄 {file_name}\n\n🔗 **رابط التحميل البديل:**\n{f_url}")
-                                sent_count += 1
-                        else:
-                            await update.message.reply_text(f"⚠️ فشل إرسال الملف `{file_name}` عبر الـ ID الخاص به.\nالسبب: قد يكون الـ file_id غير صحيح أو تم رفعه بواسطة بوت آخر.")
-                
+                    if matched_category_code in ["hadith_audio", "quran_audio"]:
+                        await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
+                    else:
+                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
                 elif f_url:
                     try:
                         if matched_category_code in ["hadith_audio", "quran_audio"]:
                             await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
                         else:
                             await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
-                        sent_count += 1
                     except Exception:
-                        await update.message.reply_text(f"{caption_text}\n\n🔗 **رابط التحميل المباشر للمستند:**\n{f_url}", parse_mode="Markdown")
-                        sent_count += 1
+                        await update.message.reply_text(f"{caption_text}\n\n🔗 **رابط التحميل المباشر:**\n{f_url}")
                 else:
-                    await update.message.reply_text(f"⚠️ تم العثور على الصف ولكن لم يتم تحديد عمود الرابط أو الـ ID بنجاح.\nالأعمدة المتوفرة بجدولك: `{list(f.keys())}`")
-            
+                    await update.message.reply_text(f"⚠️ تم العثور على الملف ولكن أعمدة الرابط فارغة.\nالحقول المتوفرة: `{list(f.keys())}`")
             except Exception as row_error:
-                print(f"Error parsing row: {row_error}")
-                await update.message.reply_text(f"❌ حدث خطأ أثناء معالجة السطر: `{str(row_error)}`")
+                print(f"Error sending row: {row_error}")
                 continue
-        
-        if sent_count == 0:
-            await update.message.reply_text("⚠️ تم جلب البيانات ولكن لم ينجح البوت في إرسال أي ملف. يرجى مراجعة الروابط والمعرفات المدخلة في قاعدة البيانات.")
         return
 
     await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
 
-# --- الدالة المشغلة للبوت ---
 async def main():
     application = Application.builder().token(BOT_TOKEN).build()
-
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
@@ -271,7 +227,6 @@ async def main():
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Bot is completely synchronized with Lovable layout and database fields!")
     
     try:
         while True:
@@ -286,4 +241,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-                            
+    
