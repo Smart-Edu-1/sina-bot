@@ -6,25 +6,26 @@ from telegram.ext import (
 )
 from supabase import create_client, Client
 
-# --- المتغيرات البيئية وبيانات الربط ---
+# --- المتغيرات البيئية وبيانات الربط المحدثة طبقاً لملف الـ env الخاص بك ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
+# 🌟 تم تصحيح الرابط والمفتاح هنا بدقة من ملف الـ env الخاص بك 🌟
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInT5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 🌟 المواد بالأسماء العربية والرموز الأيقونية الفخمة 🌟 ---
+# --- المواد بالأسماء العربية والرموز الأيقونية ---
 SUBJECTS = {
     "الرياضيات 📐": "math",
-    "الفيزياء 🌀": "phys",
+    "الفيزياء 🧲": "phys",
     "الكيمياء ⚗️": "chem",
     "علم الأحياء 🔬": "science",
     "التربية الإسلامية 🕋": "islamic",
     "اللغة العربية 📚": "arabic",
-    "اللغة الإنجليزية 🔤": "english",
-    "اللغة الفرنسية 🗼": "french",
+    "اللغة الإنجليزية 🇬🇧": "english",
+    "اللغة الفرنسية 🇨🇵": "french",
 }
 
 CATEGORIES = {
@@ -49,7 +50,7 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المنسقة هندسياً ---
+# --- لوحات المفاتيح السفلية المنسقة ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("البكلوريا العلمي 🔬"), KeyboardButton("📢 طلب إعلان للمكتبة")],
@@ -101,7 +102,7 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
-# --- منطق معالجة الرسائل المستقر والقوي كلياً ---
+# --- منطق معالجة الرسائل ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
@@ -122,7 +123,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
         return
 
-    elif text in ["البكلوريا العلمي 🔬", "🗂️ تصفح المواد الدراسية", "📚 تصفح المواد الدراسية", "🔙 تغيير المادة المحددة"]:
+    elif text in ["البكلوريا العلمي 🎓", "🗂️ تصفح المواد الدراسية", "📚 تصفح المواد الدراسية", "🔙 تغيير المادة المحددة"]:
         await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من القائمة الأيقونية المحدثة:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
         return
 
@@ -154,7 +155,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 *{subject_name}*", reply_markup=get_categories_keyboard(subject_name), parse_mode="Markdown")
         return
 
-    # جلب ومعالجة المحتويات من قاعدة البيانات فوراً
+    # جلب ومعالجة المحتويات من قاعدة البيانات
     if text in CATEGORIES or text in ["📅 حسب السنة", "📝 كاملة الشرح", "🔍 حسب الأبحاث"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
@@ -170,12 +171,12 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
         
-        # 🌟 تعديل هنا لطرد نص الخطأ الحقيقي ومعرفته 🌟
         try:
             response = supabase.table("materials").select("*").eq("subject", subject_code).eq("category", category_code).execute()
             files_list = response.data if response.data else []
         except Exception as e:
-            await update.message.reply_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ البرمجي:**\n\n`{str(e)}`", parse_mode="Markdown")
+            # طباعة الخطأ الحقيقي لمراقبة الجداول والأعمدة في حال حدوث أي مشكلة مستقبلاً
+            await update.message.reply_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ:**\n\n`{str(e)}`", parse_mode="Markdown")
             return
         
         if not files_list:
@@ -201,7 +202,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
 
-# --- الدالة المشغلة المتزامنة الكاملة والآمنة برمجياً ---
+# --- الدالة المشغلة للبوت ---
 async def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -212,7 +213,7 @@ async def main():
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Educational Library Bot is now running perfectly!")
+    print("🤖 Bot is now running with corrected Supabase keys!")
     
     try:
         while True:
@@ -227,4 +228,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-        
+                                                    
