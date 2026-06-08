@@ -11,7 +11,6 @@ from telegram.ext import (
 
 # --- المتغيرات البيئية ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-# ملاحظة هامة: تأكد من كتابة الـ ID كأرقام فقط في منصة Railway (مثال: 12345678) وليس معرف يبدأ بـ @
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
@@ -74,98 +73,97 @@ async def countdown_page(request):
     data = load_data()
     exam_date_str = data.get("exam_date", "2026-06-15")
     
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>مؤقت الامتحانات الوزارية</title>
-        <style>
-            body {{
-                margin: 0; padding: 0;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: linear-gradient(135deg, #0f172a, #1e293b);
-                color: #ffffff;
-                display: flex; flex-direction: column; align-items: center; justify-content: center;
-                min-height: 100vh; text-align: center;
-            }}
-            .container {{
-                width: 90%; max-width: 450px;
-                background: rgba(255, 255, 255, 0.06);
-                padding: 25px; border-radius: 24px;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-                backdrop-filter: blur(12px);
-                border: 1px rgba(255, 255, 255, 0.1) solid;
-            }}
-            h1 {{ font-size: 1.7rem; margin-bottom: 5px; color: #38bdf8; }}
-            .subtitle {{ font-size: 0.9rem; color: #94a3b8; margin-bottom: 25px; }}
-            .countdown-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; }}
-            .time-box {{ background: rgba(15, 23, 42, 0.7); padding: 12px 5px; border-radius: 14px; border: 1px rgba(56, 189, 248, 0.2) solid; }}
-            .time-val {{ font-size: 1.6rem; font-weight: bold; color: #f8fafc; display: block; }}
-            .time-lbl {{ font-size: 0.75rem; color: #38bdf8; }}
-            .progress-container {{ background: #334155; border-radius: 10px; height: 12px; width: 100%; overflow: hidden; margin-bottom: 10px; }}
-            .progress-bar {{ background: linear-gradient(90deg, #38bdf8, #0ea5e9); height: 100%; width: 0%; transition: width 1s ease; }}
-            .progress-text {{ font-size: 0.8rem; color: #94a3b8; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>⏳ العداد التنازلي للامتحانات</h1>
-            <div class="subtitle">شحذ الهمم يا بطل دورتنا لعام 2026 اقتربت</div>
-            <div class="countdown-grid">
-                <div class="time-box"><span class="time-val" id="days">00</span><span class="time-lbl">يوم</span></div>
-                <div class="time-box"><span class="time-val" id="hours">00</span><span class="time-lbl">ساعة</span></div>
-                <div class="time-box"><span class="time-val" id="minutes">00</span><span class="time-lbl">دقيقة</span></div>
-                <div class="time-box"><span class="time-val" id="seconds">00</span><span class="time-lbl">ثانية</span></div>
-            </div>
-            <div class="progress-container"><div class="progress-bar" id="pbar"></div></div>
-            <div class="progress-text" id="ptext">جاري الحساب...</div>
+    # نص عادي تماماً بدون f-string لمنع حدوث مشاكل فك الأقواس مع جافا سكريبت نهائياً
+    html_content = """<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مؤقت الامتحانات الوزارية</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: #ffffff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; text-align: center;
+        }
+        .container {
+            width: 90%; max-width: 450px;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 25px; border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px rgba(255, 255, 255, 0.1) solid;
+        }
+        h1 { font-size: 1.7rem; margin-bottom: 5px; color: #38bdf8; }
+        .subtitle { font-size: 0.9rem; color: #94a3b8; margin-bottom: 25px; }
+        .countdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; }
+        .time-box { background: rgba(15, 23, 42, 0.7); padding: 12px 5px; border-radius: 14px; border: 1px rgba(56, 189, 248, 0.2) solid; }
+        .time-val { font-size: 1.6rem; font-weight: bold; color: #f8fafc; display: block; }
+        .time-lbl { font-size: 0.75rem; color: #38bdf8; }
+        .progress-container { background: #334155; border-radius: 10px; height: 12px; width: 100%; overflow: hidden; margin-bottom: 10px; }
+        .progress-bar { background: linear-gradient(90deg, #38bdf8, #0ea5e9); height: 100%; width: 0%; transition: width 1s ease; }
+        .progress-text { font-size: 0.8rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⏳ العداد التنازلي للامتحانات</h1>
+        <div class="subtitle">شحذ الهمم يا بطل دورتنا لعام 2026 اقتربت</div>
+        <div class="countdown-grid">
+            <div class="time-box"><span class="time-val" id="days">00</span><span class="time-lbl">يوم</span></div>
+            <div class="time-box"><span class="time-val" id="hours">00</span><span class="time-lbl">ساعة</span></div>
+            <div class="time-box"><span class="time-val" id="minutes">00</span><span class="time-lbl">دقيقة</span></div>
+            <div class="time-box"><span class="time-val" id="seconds">00</span><span class="time-lbl">ثانية</span></div>
         </div>
-        <script>
-            const targetDate = new Date("{exam_date_str}T00:00:00").getTime();
-            const startDate = new Date("2025-09-01").getTime();
-            function updateTimer() {{
-                const now = new Date().getTime();
-                const diff = targetDate - now;
-                if (diff <= 0) {{
-                    document.getElementById("days").innerText = "00";
-                    document.getElementById("hours").innerText = "00";
-                    document.getElementById("minutes").innerText = "00";
-                    document.getElementById("seconds").innerText = "00";
-                    document.getElementById("pbar").style.width = "100%";
-                    document.getElementById("ptext").innerText = "بدأت الامتحانات الرسمية! بالتوفيق للجميع 🎯";
-                    return;
-                }}
-                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const s = Math.floor((diff % (1000 * 60)) / 1000);
-                document.getElementById("days").innerText = d.toString().padStart(2, '0');
-                document.getElementById("hours").innerText = h.toString().padStart(2, '0');
-                document.getElementById("minutes").innerText = m.toString().padStart(2, '0');
-                document.getElementById("seconds").innerText = s.toString().padStart(2, '0');
-                const total = targetDate - startDate;
-                const passed = now - startDate;
-                let pct = Math.min(Math.max(Math.floor((passed / total) * 100), 0), 100);
-                document.getElementById("pbar").style.width = pct + "%";
-                document.getElementById("ptext").innerText = "مؤشر تقدم رحلة السنة الدراسية: " + pct + "%";
-            }}
-            setInterval(updateTimer, 1000);
-            updateTimer();
-        </script>
-    </body>
-    </html>
-    """
+        <div class="progress-container"><div class="progress-bar" id="pbar"></div></div>
+        <div class="progress-text" id="ptext">جاري الحساب...</div>
+    </div>
+    <script>
+        const targetDate = new Date("__TARGET_DATE__T00:00:00").getTime();
+        const startDate = new Date("2025-09-01").getTime();
+        function updateTimer() {
+            const now = new Date().getTime();
+            const diff = targetDate - now;
+            if (diff <= 0) {
+                document.getElementById("days").innerText = "00";
+                document.getElementById("hours").innerText = "00";
+                document.getElementById("minutes").innerText = "00";
+                document.getElementById("seconds").innerText = "00";
+                document.getElementById("pbar").style.width = "100%";
+                document.getElementById("ptext").innerText = "بدأت الامتحانات الرسمية! بالتوفيق للجميع 🎯";
+                return;
+            }
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            document.getElementById("days").innerText = d.toString().padStart(2, '0');
+            document.getElementById("hours").innerText = h.toString().padStart(2, '0');
+            document.getElementById("minutes").innerText = m.toString().padStart(2, '0');
+            document.getElementById("seconds").innerText = s.toString().padStart(2, '0');
+            const total = targetDate - startDate;
+            const passed = now - startDate;
+            let pct = Math.min(Math.max(Math.floor((passed / total) * 100), 0), 100);
+            document.getElementById("pbar").style.width = pct + "%";
+            document.getElementById("ptext").innerText = "مؤشر تقدم رحلة السنة الدراسية: " + pct + "%";
+        }
+        setInterval(updateTimer, 1000);
+        updateTimer();
+    </script>
+</body>
+</html>"""
+    html_content = html_content.replace("__TARGET_DATE__", exam_date_str)
     return web.Response(text=html_content, content_type='text/html')
 
-# --- عرض القائمة الرئيسية (تصميم شبكي سفلي احترافي) ---
+# --- عرض القائمة الرئيسية (تصميم أزرار شبكية مريحة) ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user_if_new(update.effective_user.id)
     
-    # تصميم الأزرار الثابتة في الأسفل متناسقة ومريحة جداً لليد
     keyboard = [
-        [KeyboardButton("🎓 بكلوريا علمي"), KeyboardButton("📢 نشر إعلان")],
+        [KeyboardButton("📢 نشر إعلان"), KeyboardButton("🎓 بكلوريا علمي")],
         [KeyboardButton("🏠 الرئيسية")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, placeholder="اختر القسم المطلوب من هنا...")
@@ -180,12 +178,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
     
-    # 1. إذا طلب المستخدم العودة للقائمة الرئيسية
     if user_text == "🏠 الرئيسية":
         await start(update, context)
         return
 
-    # 2. إذا ضغط الطالب على قسم بكلوريا علمي
     elif user_text == "🎓 بكلوريا علمي":
         webapp_url = f"{PUBLIC_URL}/countdown" if PUBLIC_URL else "https://google.com"
         keyboard = [
@@ -194,22 +190,21 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
             [InlineKeyboardButton("📚 المواد الدراسية", callback_data="bac_subjects")]
         ]
         await update.message.reply_text(
-            "🎓 *قسم البكالوريا العلمية*\n\nاختر من القائمة الشجرية الذكية ما تبحث عنه:", 
+            "🎓 *العام الدراسي 2026 - بكالوريا علمي*\n\nاختر من القائمة الذكية ما تبحث عنه لتصفحه فوراُ:", 
             reply_markup=InlineKeyboardMarkup(keyboard), 
             parse_mode="Markdown"
         )
         return
 
-    # 3. إذا ضغط الطالب على زر نشر إعلان (يتم إرسال رابط الحساب الشخصي بزر شفاف مباشر لفتحه تلقائياً)
     elif user_text == "📢 نشر إعلان":
         keyboard = [[InlineKeyboardButton("💬 تواصل معي لنشر إعلانك الآن", url=f"https://t.me/{YOUR_TELEGRAM_USERNAME}")]]
         await update.message.reply_text(
-            "📢 يمكنك نشر إعلاناتك عبر منصتنا التعليمية بسهولة.\n\nاضغط على الزر أدناه ليتم تحويلك مباشرة لملفي الشخصي لإرسال التفاصيل:",
+            "📢 يمكنك نشر إعلاناتك بسهولة عبر البوت.\n\nاضغط على الزر أدناه ليتم تحويلك مباشرة لملفي الشخصي لإرسال التفاصيل:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
-    # --- إدارة استقبال النصوص الخاصة بالأدمن ---
+    # استقبال تواصل الأدمن ونصوص التعديل
     if update.effective_user.id == ADMIN_ID:
         if context.user_data.get("waiting_for_reciter_name"):
             reciter_name = user_text
@@ -256,7 +251,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💡 ملاحظات", callback_data=f"subcat_{subject_code}_remarks")],
         ]
         
-        # تفعيل الميزات الصوتية الحصرية لمادة التربية الإسلامية فقط
         if subject_code == "islamic":
             keyboard.append([InlineKeyboardButton("🔊 الأحاديث بشكل صوتي", callback_data="audio_reciters_islamic_hadith_audio")])
             keyboard.append([InlineKeyboardButton("🔊 الآيات بشكل صوتي", callback_data="audio_reciters_islamic_quran_audio")])
@@ -290,7 +284,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for r in reciters:
             reciter_keyboard.append([InlineKeyboardButton(f"🎙️ القارئ: {r}", callback_data=f"viewaudio_{storage_key}_{r}")])
         reciter_keyboard.append([InlineKeyboardButton("🔙 عودة لمادة الإسلامية", callback_data="sub_islamic")])
-        await query.edit_message_text("🎙️ *قائمة القراء والمسموعات المتوفرة للقسم:*\n\nاختر اسم القارئ والشيخ المفضل للاستماع:", reply_markup=InlineKeyboardMarkup(reciter_keyboard), parse_mode="Markdown")
+        await query.edit_message_text("🎙️ *قائمة القراء والمسموعات المتوفرة للقسم:*", reply_markup=InlineKeyboardMarkup(reciter_keyboard), parse_mode="Markdown")
 
     elif data.startswith("viewaudio_"):
         parts = data.split("_", 3)
@@ -327,7 +321,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("📝 برنامج الامتحان الرسمي لم يتم رفعه وتثبيته بعد من قبل الإدارة.")
 
-    # --- معالجة خطوات الأدمن للرفع الشجري التلقائي ---
+    # خطوات رفع وتصنيف الملفات للأدمن
     elif data.startswith("admin_set_subj_"):
         subject_code = data.replace("admin_set_subj_", "")
         context.user_data["upload_subj"] = subject_code
@@ -387,4 +381,20 @@ async def complete_file_save(message, context, reciter_name=None):
     bot_data["files"][storage_key].append(file_entry)
     save_data(bot_data)
     
-    # تفادي حدوث أي خطأ في فك الأقواس المفتوحة، قمنا بفصل المسميات هنا بش
+    subj_title = SUBJECTS.get(subject_code, subject_code)
+    cat_title = CATEGORIES.get(cat_type, cat_type)
+    
+    msg_text = f"🚀 *تم الفرز التلقائي وحفظ الملف بنجاح!*\n\n📁 الملف: `{file_name}`\n📚 المادة: {subj_title}\n📂 التصنيف: {cat_title}"
+    if reciter_name:
+        msg_text += f"\n🎙️ بصوت الشيخ/القارئ: {reciter_name}"
+        
+    await message.reply_text(msg_text, parse_mode="Markdown")
+    context.user_data.clear()
+
+# --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
+async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+
+    if update.message.document:
+        file_id = update.message.document.file_id
+        file_name = update.message.documen
