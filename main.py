@@ -166,7 +166,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [KeyboardButton("📢 نشر إعلان"), KeyboardButton("🎓 بكلوريا علمي")],
         [KeyboardButton("🏠 الرئيسية")]
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, placeholder="اختر القسم المطلوب من هنا...")
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر القسم المطلوب من هنا...")
     
     await update.effective_message.reply_text(
         "👋 أهلاً بك في بوت سينا التعليمي المخصص لطلاب البكالوريا العلمية.\n\n"
