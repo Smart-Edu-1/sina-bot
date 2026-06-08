@@ -18,7 +18,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInT5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 🌟 المواد بالأسماء العربية والرموز الأيقونية المرجعية الفخمة 🌟 ---
+# --- 🌟 المواد بالأسماء العربية والرموز الأيقونية الفخمة 🌟 ---
 SUBJECTS = {
     "الرياضيات 📐": "math",
     "الفيزياء ⚛️": "phys",
@@ -52,7 +52,7 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المنسقة هندسياً مثل البوت المرجعي ---
+# --- لوحات المفاتيح السفلية المنسقة ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("⏱️ العداد التنازلي للامتحانات", web_app=WebAppInfo(url=LOVABLE_WEBAPP_URL))],
@@ -62,7 +62,6 @@ def get_main_keyboard():
 
 def get_subjects_keyboard():
     keys = list(SUBJECTS.keys())
-    # توزيع المواد في شبكة متناسقة ومريحة للعين مثل لقطة الشاشة تماماً
     return ReplyKeyboardMarkup([
         [keys[0], keys[1]],
         [keys[2], keys[3]],
@@ -77,7 +76,7 @@ def get_categories_keyboard(subject_name):
         ["📒 النوط الشاملة", "💡 ملاحظات تذكيرية"],
         ["📂 أسئلة السنوات السابقة"]
     ]
-    if "الإسلامية" in subject_name or "🕋" in subject_name:
+    if "التربية الإسلامية" in subject_name or "🕋" in subject_name:
         keyboard.insert(2, ["🔊 الأحاديث الشريفة", "🔊 الآيات القرآنية"])
     keyboard.append(["🔙 تغيير المادة المحددة"])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر القسم المطلوب...")
@@ -89,7 +88,7 @@ def get_exams_keyboard():
         ["🔙 العودة لأقسام المادة"]
     ], resize_keyboard=True, input_field_placeholder="اختر طريقة فرز الأسئلة...")
 
-# --- منطق معالجة الرسائل المستقر والقوي ---
+# --- منطق معالجة الرسائل المصلح والمستقر كلياً ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
@@ -119,22 +118,31 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # التحقق الديناميكي الفوري من اختيار المادة بالرموز الجديدة
+    # التحقق الديناميكي الفوري من اختيار المادة
     if text in SUBJECTS:
         user_data["current_subject_name"] = text
         user_data["current_subject_code"] = SUBJECTS[text]
         await update.message.reply_text(f"✨ لقد فتحت الآن رفوف مادة:\n🎯 *{text}*\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار بالأسفل:", reply_markup=get_categories_keyboard(text), parse_mode="Markdown")
         return
 
-    # أرشيف أسئلة السنوات
-    if text in ["📂 أسئلة السنوات السابقة", "🔙 العودة لأقسام المادة"]:
+    # دخـول أرشيف أسئلة السنوات 
+    if text == "📂 أسئلة السنوات السابقة":
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ يرجى اختيار المادة أولاً.", reply_markup=get_subjects_keyboard())
             return
         await update.message.reply_text("📅 اختر طريقة عرض الفرز لأسئلة السنوات السابقة:", reply_markup=get_exams_keyboard())
         return
 
-    # جلب ومعالجة المحتويات من قاعدة البيانات فوراً
+    # 🛠️ إصـلاح الـعودة لأقـسام المـادة (تم الفصل هنا بنجاح) 🛠️
+    if text == "🔙 العودة لأقسام المادة":
+        if "current_subject_name" not in user_data:
+            await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
+            return
+        subject_name = user_data["current_subject_name"]
+        await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 *{subject_name}*", reply_markup=get_categories_keyboard(subject_name), parse_mode="Markdown")
+        return
+
+    # جلب ومعالجة المحتويات من قاعدة البيانات فوراً عند الضغط على تصنيفات الأسئلة
     if text in CATEGORIES or text in ["📅 حسب السنة", "📝 كاملة الشرح", "🔍 حسب الأبحاث"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
@@ -180,7 +188,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
 
-# --- الدالة المشغلة المتزامنة الكاملة والمغلقة برمجياً ---
+# --- الدالة المشغلة المتزامنة الكاملة والآمنة برمجياً ---
 async def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
