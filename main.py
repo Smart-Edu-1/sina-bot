@@ -393,6 +393,7 @@ async def complete_file_save(message, context, reciter_name=None):
 
 # --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
 # --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
+# --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
 async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: 
         return
@@ -400,21 +401,17 @@ async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT
     file_id = None
     file_name = "ملف_غير_معروف"
 
-    # التحقق إذا كان المرفق ملفاً عاديًا (PDF، نوطة، إلخ)
     if update.message.document:
         file_id = update.message.document.file_id
         file_name = update.message.document.file_name
-    # التحقق إذا كان المرفق ملفاً صوتياً (أحاديث، آيات)
     elif update.message.audio:
         file_id = update.message.audio.file_id
         file_name = update.message.audio.title or "تسجيل صوتي"
 
     if file_id:
-        # حفظ بيانات الملف مؤقتاً في جلسة الأدمن لحين اختيار التصنيف
         context.user_data["last_file_id"] = file_id
         context.user_data["last_file_name"] = file_name
         
-        # إنشاء لوحة أزرار المواد للأدمن ليختار أين يفرز الملف
         keyboard = []
         sub_keys = list(SUBJECTS.keys())
         for i in range(0, len(sub_keys), 2):
@@ -424,7 +421,6 @@ async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT
             ]
             keyboard.append([b for b in row if b is not None])
             
-        # إضافة خيار إضافي لبرنامج الامتحان الرسمي
         keyboard.append([InlineKeyboardButton("📅 برنامج الامتحان الرسمي", callback_data="admin_set_subj_schedule")])
         
         await update.message.reply_text(
@@ -433,8 +429,8 @@ async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT
             parse_mode="Markdown"
         )
 
-# --- الدالة الأساسية لتشغيل البوت وسيرفر الويب معاً ---
-def main():
+# --- التشغيل المتوافق والآمن الحديث لبايثون 3.13 ومكتبة التيليجرام ---
+async def main_async():
     # 1. بناء تطبيق تيليجرام
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -444,21 +440,32 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, handle_document_or_audio))
 
-    # 3. إعداد سيرفر WebApp العداد التنازلي المدمجة عبر aiohttp
+    # 3. إعداد سيرفر الويب للعداد التنازلي المدمج
     app = web.Application()
     app.router.add_get('/countdown', countdown_page)
 
-    # تشغيل السيرفر والبوت بالتوازي
     port = int(os.environ.get("PORT", 8080))
     
-    # حلقة تشغيل ذكية مدمجة لـ Railway
-    loop = asyncio.get_event_loop()
-    loop.create_task(application.initialize())
-    loop.create_task(application.start())
-    loop.create_task(application.updater.start_polling())
-    
-    print(f"🚀 البوت يعمل الآن وسيرفر العداد جاهز على المنفذ: {port}")
-    web.run_app(app, host='0.0.0.0', port=port, loop=loop)
+    # تشغيل سيرفر الويب بشكل غير حاصر (Non-blocking) لتفادي أي تضارب
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"🚀 سيرفر العداد جاهز ويعمل الآن على المنفذ: {port}")
+
+    # تشغيل البوت باستخدام سياق آمن (Context Manager) يحل مشكلة الـ Initialization نهائياً
+    async with application:
+        await application.start()
+        await application.updater.start_polling()
+        print("🚀 البوت يعمل الآن ويستقبل كل رسائل الطلاب بنجاح...")
+        
+        # حلقة الحفاظ على استمرار التطبيق قيد التشغيل في ريلواي
+        while True:
+            await asyncio.sleep(3600)
+
+def main():
+    # تشغيل الدورة البرمجية بأمان متوافق مع بايثون 3.13
+    asyncio.run(main_async())
 
 if __name__ == '__main__':
     main()
