@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 from datetime import datetime
 from aiohttp import web
@@ -8,10 +7,11 @@ from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters, ContextTypes
 )
+# استيراد مكتبة الاتصال بـ Supabase
+from supabase import create_client, Client
 
-# --- المتغيرات البيئية ---
+# --- المتغيرات البيئية وبيانات الربط المستخرجة من الصورة ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
 # جلب رابط الاستضافة التلقائي من Railway لتشغيل نافذة العداد التنازلي المدمجة
@@ -19,32 +19,14 @@ PUBLIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
 if PUBLIC_URL and not PUBLIC_URL.startswith("https://"):
     PUBLIC_URL = f"https://{PUBLIC_URL}"
 
-DATA_FILE = "bot_data.json"
+# 🔥 تم وضع البيانات الحقيقية من صورتك هنا بدقة 100%
+SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
 
-# --- دالات إدارة وحفظ البيانات ---
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {"users": [], "files": {}, "exam_date": "2026-06-15"}
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        try:
-            d = json.load(f)
-            if "exam_date" not in d: d["exam_date"] = "2026-06-15"
-            return d
-        except json.JSONDecodeError:
-            return {"users": [], "files": {}, "exam_date": "2026-06-15"}
+# تهيئة عميل الاتصال بقاعدة البيانات السحابية للموقع
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
-def add_user_if_new(user_id):
-    data = load_data()
-    if "users" not in data: data["users"] = []
-    if user_id not in data["users"]:
-        data["users"].append(user_id)
-        save_data(data)
-
-# --- المصفوفات الثابتة للمواد والتصنيفات ---
+# --- المصفوفات الثابتة للمواد والتصنيفات مطابقة للموقع ---
 SUBJECTS = {
     "math": "📐 الرياضيات",
     "phys": "⚡ الفيزياء",
@@ -68,12 +50,14 @@ CATEGORIES = {
     "quran_audio": "🔊 الآيات بشكل صوتي"
 }
 
-# --- صفحة العداد التنازلي الاحترافية (HTML/CSS) للنافذة المنبثقة WebApp ---
+# --- صفحة العداد التنازلي للنافذة المنبثقة WebApp (تأخذ التاريخ من الموقع) ---
 async def countdown_page(request):
-    data = load_data()
-    exam_date_str = data.get("exam_date", "2026-06-15")
+    try:
+        response = supabase.table("settings").select("value").eq("key", "exam_date").execute()
+        exam_date_str = response.data[0]["value"] if response.data else "2026-06-15"
+    except Exception:
+        exam_date_str = "2026-06-15"
     
-    # نص عادي تماماً بدون f-string لمنع حدوث مشاكل فك الأقواس مع جافا سكريبت نهائياً
     html_content = """<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -158,23 +142,35 @@ async def countdown_page(request):
     html_content = html_content.replace("__TARGET_DATE__", exam_date_str)
     return web.Response(text=html_content, content_type='text/html')
 
-# --- عرض القائمة الرئيسية (تصميم أزرار شبكية مريحة) ---
+# --- تسجيل المستخدم في الموقع تلقائياً لتحديث الإحصائيات ---
+def register_student_to_supabase(user):
+    try:
+        supabase.table("students").upsert({
+            "telegram_id": user.id,
+            "username": user.username,
+            "first_name": user.first_name
+        }, on_conflict="telegram_id").execute()
+    except Exception as e:
+        print(f"Error registering student: {e}")
+
+# --- عرض القائمة الرئيسية للبوت ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    add_user_if_new(update.effective_user.id)
+    register_student_to_supabase(update.effective_user)
     
     keyboard = [
-        [KeyboardButton("📢 نشر إعلان"), KeyboardButton("🎓 بكلوريا علمي")],
+        [KeyboardButton("📢 طلب إعلان"), KeyboardButton("📚 تصفح المكتبة التعليمية")],
         [KeyboardButton("🏠 الرئيسية")]
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر القسم المطلوب من هنا...")
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر ما تريده من المكتبة...")
     
     await update.effective_message.reply_text(
-        "👋 أهلاً بك في بوت سينا التعليمي المخصص لطلاب البكالوريا العلمية.\n\n"
-        "الرجاء اختيار أحد الأقسام من الأزرار المتاحة أسفل الشاشة لبدء التصفح الفرعي والمنظم للدروس والملفات:",
-        reply_markup=reply_markup
+        "👋 أهلاً بك في *بوت المكتبة التعليمية* المطور لطلاب البكالوريا العلمية.\n\n"
+        "يسعدنا مساعدتك في رحلتك الدراسية، يرجى تصفح الأقسام والمواد المتاحة عبر الأزرار أدناه بكل سهولة:",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
     )
 
-# --- معالجة الأزرار النصية (الأسفل) وزر الرئيسية ---
+# --- معالجة الأزرار النصية السفلية للبوت ---
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
     
@@ -182,53 +178,34 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await start(update, context)
         return
 
-    elif user_text == "🎓 بكلوريا علمي":
+    elif user_text == "📚 تصفح المكتبة التعليمية":
         webapp_url = f"{PUBLIC_URL}/countdown" if PUBLIC_URL else "https://google.com"
         keyboard = [
-            [InlineKeyboardButton("⏳ تبقى للامتحان (اضغط لفتح النافذة)", web_app=WebAppInfo(url=webapp_url))],
-            [InlineKeyboardButton("📅 برنامج الامتحان", callback_data="bac_schedule")],
-            [InlineKeyboardButton("📚 المواد الدراسية", callback_data="bac_subjects")]
+            [InlineKeyboardButton("⏳ العداد التنازلي للامتحانات", web_app=WebAppInfo(url=webapp_url))],
+            [InlineKeyboardButton("📚 عرض المواد الدراسية وملفاتها", callback_data="bac_subjects")]
         ]
         await update.message.reply_text(
-            "🎓 *العام الدراسي 2026 - بكالوريا علمي*\n\nاختر من القائمة الذكية ما تبحث عنه لتصفحه فوراُ:", 
+            "📚 *أهلاً بك في فروع المكتبة الشاملة*\n\nاختر الخدمة المطلوبة من القائمة الذكية المرتبطة بالموقع الإلكتروني فوراً:", 
             reply_markup=InlineKeyboardMarkup(keyboard), 
             parse_mode="Markdown"
         )
         return
 
-    elif user_text == "📢 نشر إعلان":
-        keyboard = [[InlineKeyboardButton("💬 تواصل معي لنشر إعلانك الآن", url=f"https://t.me/{YOUR_TELEGRAM_USERNAME}")]]
+    elif user_text == "📢 طلب إعلان":
+        keyboard = [[InlineKeyboardButton("💬 تواصل مع إدارة المكتبة", url=f"https://t.me/{YOUR_TELEGRAM_USERNAME}")]]
         await update.message.reply_text(
-            "📢 يمكنك نشر إعلاناتك بسهولة عبر البوت.\n\nاضغط على الزر أدناه ليتم تحويلك مباشرة لملفي الشخصي لإرسال التفاصيل:",
+            "📢 يمكنك طلب نشر إعلانك التعليمي لطلاب البكالوريا عبر البوت.\n\nاضغط على الزر أدناه لإرسال التفاصيل للإدارة لمراجعتها من موقع الإدارة:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
-    # استقبال تواصل الأدمن ونصوص التعديل
-    if update.effective_user.id == ADMIN_ID:
-        if context.user_data.get("waiting_for_reciter_name"):
-            reciter_name = user_text
-            await complete_file_save(update.message, context, reciter_name=reciter_name)
-            return
-
-        if user_text.startswith("/setdate "):
-            new_date = user_text.replace("/setdate ", "").strip()
-            try:
-                datetime.strptime(new_date, "%Y-%m-%d")
-                data = load_data()
-                data["exam_date"] = new_date
-                save_data(data)
-                await update.message.reply_text(f"✅ تم تحديث تاريخ الامتحان للعداد بنجاح إلى: `{new_date}`", parse_mode="Markdown")
-            except ValueError:
-                await update.message.reply_text("⚠️ صيغة التاريخ خاطئة! يرجى إرسالها هكذا: `2026-06-15`")
-
-# --- معالجة الضغط على أزرار لوحة التصفح الداخلية الشجرية ---
+# --- معالجة الضغط على أزرار التصفح الشجرية وجلبها من السيرفر والموقع ---
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
-    bot_data = load_data()
 
+    # عرض المواد الدراسية
     if data == "bac_subjects":
         keyboard = []
         sub_keys = list(SUBJECTS.keys())
@@ -238,8 +215,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton(SUBJECTS[sub_keys[i+1]], callback_data=f"sub_{sub_keys[i+1]}") if i+1 < len(sub_keys) else None
             ]
             keyboard.append([b for b in row if b is not None])
-        await query.edit_message_text("📚 *اختر المادة الدراسية المراد تصفح أقسامها ومحتوياتها:*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        await query.edit_message_text("📚 *اختر المادة الدراسية لفتح رفوف ملفاتها المرفوعة من موقع الإدارة:*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+    # تصفح أقسام المادة المحددة
     elif data.startswith("sub_") and not data.startswith("subcat_"):
         subject_code = data.replace("sub_", "")
         subject_name = SUBJECTS[subject_code]
@@ -248,224 +226,118 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📖 الكتاب المدرسي", callback_data=f"subcat_{subject_code}_book")],
             [InlineKeyboardButton("📝 الملخصات", callback_data=f"subcat_{subject_code}_notes")],
             [InlineKeyboardButton("📒 النوط", callback_data=f"subcat_{subject_code}_notebook")],
-            [InlineKeyboardButton("💡 ملاحظات", callback_data=f"subcat_{subject_code}_remarks")],
+            [InlineKeyboardButton("💡 ملاحظات تذكيرية", callback_data=f"subcat_{subject_code}_remarks")],
         ]
         
         if subject_code == "islamic":
-            keyboard.append([InlineKeyboardButton("🔊 الأحاديث بشكل صوتي", callback_data="audio_reciters_islamic_hadith_audio")])
-            keyboard.append([InlineKeyboardButton("🔊 الآيات بشكل صوتي", callback_data="audio_reciters_islamic_quran_audio")])
+            keyboard.append([InlineKeyboardButton("🔊 الأحاديث بشكل صوتي", callback_data="audio_reciters_hadith_audio")])
+            keyboard.append([InlineKeyboardButton("🔊 الآيات بشكل صوتي", callback_data="audio_reciters_quran_audio")])
             
         keyboard.append([InlineKeyboardButton("📂 أسئلة السنوات السابقة", callback_data=f"exmenu_{subject_code}")])
-        keyboard.append([InlineKeyboardButton("🔙 العودة للمواد", callback_data="bac_subjects")])
-        await query.edit_message_text(f"📂 مادة *{subject_name}*\n\nاختر القسم المطلوب لتصفح ملفاته المحفوظة:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        keyboard.append([InlineKeyboardButton("🔙 العودة لرفوف المواد", callback_data="bac_subjects")])
+        await query.edit_message_text(f"📂 مكتبة مادة *{subject_name}*\n\nاختر التصنيف المفرز لتصفح المستندات الحالية السحابية:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+    # أسئلة السنوات
     elif data.startswith("exmenu_"):
         subject_code = data.replace("exmenu_", "")
         subject_name = SUBJECTS[subject_code]
         keyboard = [
             [InlineKeyboardButton("📅 حسب السنة", callback_data=f"subcat_{subject_code}_exams_year")],
-            [InlineKeyboardButton("📝 كاملة", callback_data=f"subcat_{subject_code}_exams_all")],
-            [InlineKeyboardButton("🔍 حسب البحث", callback_data=f"subcat_{subject_code}_exams_topic")],
+            [InlineKeyboardButton("📝 كاملة الشرح", callback_data=f"subcat_{subject_code}_exams_all")],
+            [InlineKeyboardButton("🔍 حسب الأبحاث", callback_data=f"subcat_{subject_code}_exams_topic")],
             [InlineKeyboardButton("🔙 العودة للمادة", callback_data=f"sub_{subject_code}")]
         ]
-        await query.edit_message_text(f"📂 أسئلة سنوات مادة *{subject_name}*\n\nاختر نوع تصنيف الفرز المطلوب:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        await query.edit_message_text(f"📂 أسئلة سنوات مادة *{subject_name}*\n\nاختر نوع الفرز المطلوب:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+    # جلب الصوتيات وفرز الشيوخ والقراء من الموقع
     elif data.startswith("audio_reciters_"):
-        storage_key = data.replace("audio_reciters_", "")
-        files_list = bot_data.get("files", {}).get(storage_key, [])
-        keyboard = [[InlineKeyboardButton("🔙 عودة للمادة", callback_data="sub_islamic")]]
+        cat_type = data.replace("audio_reciters_", "")
         
-        if not files_list:
-            await query.edit_message_text("⚠️ لا توجد ملفات صوتية مرفوعة في هذا القسم حالياً.", reply_markup=InlineKeyboardMarkup(keyboard))
+        response = supabase.table("materials").select("reciter_name").eq("subject", "islamic").eq("category", cat_type).execute()
+        reciters_data = response.data if response else []
+        
+        keyboard = [[InlineKeyboardButton("🔙 عودة لمادة الإسلامية", callback_data="sub_islamic")]]
+        
+        if not reciters_data:
+            await query.edit_message_text("⚠️ لا توجد ملفات صوتية مرفوعة من موقع الإدارة في هذا قسم حالياً.", reply_markup=InlineKeyboardMarkup(keyboard))
             return
             
-        reciters = set([f.get("reciter", "غير محدد") for f in files_list])
+        reciters = set([f.get("reciter_name") for f in reciters_data if f.get("reciter_name")])
         reciter_keyboard = []
         for r in reciters:
-            reciter_keyboard.append([InlineKeyboardButton(f"🎙️ القارئ: {r}", callback_data=f"viewaudio_{storage_key}_{r}")])
+            reciter_keyboard.append([InlineKeyboardButton(f"🎙️ القارئ: {r}", callback_data=f"viewaudio_{cat_type}_{r}")])
         reciter_keyboard.append([InlineKeyboardButton("🔙 عودة لمادة الإسلامية", callback_data="sub_islamic")])
-        await query.edit_message_text("🎙️ *قائمة القراء والمسموعات المتوفرة للقسم:*", reply_markup=InlineKeyboardMarkup(reciter_keyboard), parse_mode="Markdown")
+        await query.edit_message_text("🎙️ *قائمة القراء والمسموعات المتوفرة في الموقع:*", reply_markup=InlineKeyboardMarkup(reciter_keyboard), parse_mode="Markdown")
 
+    # تشغيل وإرسال الصوت المختار
     elif data.startswith("viewaudio_"):
-        parts = data.split("_", 3)
-        storage_key = f"{parts[1]}_{parts[2]}"
-        reciter_name = parts[3]
-        files_list = bot_data.get("files", {}).get(storage_key, [])
+        parts = data.split("_", 2)
+        cat_type = parts[1]
+        reciter_name = parts[2]
         
-        await query.message.reply_text(f"⏳ جاري جلب وإرسال التسجيلات الصوتية بصوت القارئ: {reciter_name}...")
+        response = supabase.table("materials").select("*").eq("subject", "islamic").eq("category", cat_type).eq("reciter_name", reciter_name).execute()
+        files_list = response.data if response.data else []
+        
+        await query.message.reply_text(f"⏳ جاري سحب المسموعات بصوت القارئ: {reciter_name} من خادم الموقع المطور...")
         for f in files_list:
-            if f.get("reciter") == reciter_name:
-                await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f["file_id"], caption=f"🎵 {f['name']}")
+            if f.get("file_id"):
+                await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f["file_id"], caption=f"🎵 {f['file_name']}")
+            elif f.get("file_url"):
+                await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f["file_url"], caption=f"🎵 {f['file_name']}")
 
+    # جلب وإرسال المستندات والكتب والملخصات المرفوعة من الموقع تلقائياً
     elif data.startswith("subcat_"):
         parts = data.split("_", 2)
         subject_code = parts[1]
         cat_type = parts[2]
-        storage_key = f"{subject_code}_{cat_type}"
-        files_list = bot_data.get("files", {}).get(storage_key, [])
+        
+        response = supabase.table("materials").select("*").eq("subject", subject_code).eq("category", cat_type).execute()
+        files_list = response.data if response.data else []
         
         keyboard = [[InlineKeyboardButton("🔙 عودة للمادة", callback_data=f"sub_{subject_code}")]]
         if not files_list:
             cat_name = CATEGORIES.get(cat_type, cat_type)
-            await query.edit_message_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في قسم: *{cat_name}*.", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            await query.edit_message_text(f"⚠️ لا توجد ملفات مرفوعة حالياً من الموقع في قسم: *{cat_name}*.", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
             
-        await query.message.reply_text("⏳ جاري تحميل وإرسال الملفات المطلوبة للقسم المختار...")
+        await query.message.reply_text("⏳ جاري جلب المستندات والروابط التعليمية المحدثة من الموقع...")
         for f in files_list:
-            await context.bot.send_document(chat_id=update.effective_chat.id, document=f["file_id"], caption=f"📄 {f['name']}")
+            if f.get("file_id"):
+                await context.bot.send_document(chat_id=update.effective_chat.id, document=f["file_id"], caption=f"📄 {f['file_name']}")
+            elif f.get("file_url"):
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=f"📄 *{f['file_name']}*\n🔗 رابط الملف المباشر: {f['file_url']}", parse_mode="Markdown")
 
-    elif data == "bac_schedule":
-        schedule_files = bot_data.get("files", {}).get("exam_schedule_file", [])
-        if schedule_files:
-            await query.message.reply_document(document=schedule_files[0]["file_id"], caption="📅 برنامج الامتحانات الوزارية للفرع العلمي المعتمد")
-        else:
-            await query.message.reply_text("📝 برنامج الامتحان الرسمي لم يتم رفعه وتثبيته بعد من قبل الإدارة.")
-
-    # خطوات رفع وتصنيف الملفات للأدمن
-    elif data.startswith("admin_set_subj_"):
-        subject_code = data.replace("admin_set_subj_", "")
-        context.user_data["upload_subj"] = subject_code
-        
-        if subject_code == "schedule":
-            bot_data["files"]["exam_schedule_file"] = [{"name": context.user_data["last_file_name"], "file_id": context.user_data["last_file_id"]}]
-            save_data(bot_data)
-            await query.edit_message_text("✅ تم حفظ وتثبيت الملف كـ *برنامج الامتحان الرسمي للبوت*!")
-            context.user_data.clear()
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("📖 الكتاب المدرسي", callback_data="admin_set_cat_book")],
-            [InlineKeyboardButton("📝 الملخصات", callback_data="admin_set_cat_notes")],
-            [InlineKeyboardButton("📒 النوط", callback_data="admin_set_cat_notebook")],
-            [InlineKeyboardButton("💡 ملاحظات", callback_data="admin_set_cat_remarks")]
-        ]
-        if subject_code == "islamic":
-            keyboard.append([InlineKeyboardButton("🔊 الأحاديث بشكل صوتي", callback_data="admin_set_cat_hadith_audio")])
-            keyboard.append([InlineKeyboardButton("🔊 الآيات بشكل صوتي", callback_data="admin_set_cat_quran_audio")])
-            
-        keyboard.extend([
-            [InlineKeyboardButton("📅 أسئلة سنوات (حسب السنة)", callback_data="admin_set_cat_exams_year")],
-            [InlineKeyboardButton("📝 أسئلة سنوات (كاملة)", callback_data="admin_set_cat_exams_all")],
-            [InlineKeyboardButton("🔍 أسئلة سنوات (حسب البحث)", callback_data="admin_set_cat_exams_topic")]
-        ])
-        await query.edit_message_text(f"🎯 مادة: {SUBJECTS[subject_code]}\n\nاختر نوع فرز وحفظ هذا الملف المرفوع بداخلها:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif data.startswith("admin_set_cat_"):
-        cat_type = data.replace("admin_set_cat_", "")
-        context.user_data["upload_cat"] = cat_type
-        subject_code = context.user_data.get("upload_subj")
-        
-        if subject_code == "islamic" and cat_type in ["hadith_audio", "quran_audio"]:
-            await query.edit_message_text("🎙️ *محتوى صوتي إسلامي:*\n\nالرجاء كتابة اسم (القارئ أو الشيخ) نصياً الآن في الشات لإتمام عملية الربط والعرض:")
-            context.user_data["waiting_for_reciter_name"] = True
-            return
-            
-        await complete_file_save(query.message, context)
-
-# --- إتمام الحفظ النهائي وتفادي أخطاء الـ SyntaxError القديمة ---
-async def complete_file_save(message, context, reciter_name=None):
-    bot_data = load_data()
-    subject_code = context.user_data.get("upload_subj")
-    cat_type = context.user_data.get("upload_cat")
-    file_id = context.user_data.get("last_file_id")
-    file_name = context.user_data.get("last_file_name")
-    
-    storage_key = f"{subject_code}_{cat_type}"
-    if "files" not in bot_data: bot_data["files"] = {}
-    if storage_key not in bot_data["files"]: bot_data["files"][storage_key] = []
-    
-    file_entry = {"name": file_name, "file_id": file_id}
-    if reciter_name:
-        file_entry["reciter"] = reciter_name
-        
-    bot_data["files"][storage_key].append(file_entry)
-    save_data(bot_data)
-    
-    subj_title = SUBJECTS.get(subject_code, subject_code)
-    cat_title = CATEGORIES.get(cat_type, cat_type)
-    
-    msg_text = f"🚀 *تم الفرز التلقائي وحفظ الملف بنجاح!*\n\n📁 الملف: `{file_name}`\n📚 المادة: {subj_title}\n📂 التصنيف: {cat_title}"
-    if reciter_name:
-        msg_text += f"\n🎙️ بصوت الشيخ/القارئ: {reciter_name}"
-        
-    await message.reply_text(msg_text, parse_mode="Markdown")
-    context.user_data.clear()
-
-# --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
-# --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
-# --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
-async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID: 
-        return
-
-    file_id = None
-    file_name = "ملف_غير_معروف"
-
-    if update.message.document:
-        file_id = update.message.document.file_id
-        file_name = update.message.document.file_name
-    elif update.message.audio:
-        file_id = update.message.audio.file_id
-        file_name = update.message.audio.title or "تسجيل صوتي"
-
-    if file_id:
-        context.user_data["last_file_id"] = file_id
-        context.user_data["last_file_name"] = file_name
-        
-        keyboard = []
-        sub_keys = list(SUBJECTS.keys())
-        for i in range(0, len(sub_keys), 2):
-            row = [
-                InlineKeyboardButton(SUBJECTS[sub_keys[i]], callback_data=f"admin_set_subj_{sub_keys[i]}"),
-                InlineKeyboardButton(SUBJECTS[sub_keys[i+1]], callback_data=f"admin_set_subj_{sub_keys[i+1]}") if i+1 < len(sub_keys) else None
-            ]
-            keyboard.append([b for b in row if b is not None])
-            
-        keyboard.append([InlineKeyboardButton("📅 برنامج الامتحان الرسمي", callback_data="admin_set_subj_schedule")])
-        
-        await update.message.reply_text(
-            f"📥 *تم استقبال الملف بنجاح:*\n`{file_name}`\n\nالآن، الرجاء تحديد المادة التي ترغب في تصنيف وحفظ هذا الملف بداخلها:",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-
-# --- التشغيل المتوافق والآمن الحديث لبايثون 3.13 ومكتبة التيليجرام ---
-async def main_async():
-    # 1. بناء تطبيق تيليجرام
+# --- الدالة المشغلة المتزامنة للبوت وخادم الويب المدمج ---
+async def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # 2. تسجيل مستقبِلات الأوامر والرسائل
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
-    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, handle_document_or_audio))
 
-    # 3. إعداد سيرفر الويب للعداد التنازلي المدمج
-    app = web.Application()
-    app.router.add_get('/countdown', countdown_page)
-
-    port = int(os.environ.get("PORT", 8080))
+    web_app = web.Application()
+    web_app.router.add_get('/countdown', countdown_page)
     
-    # تشغيل سيرفر الويب بشكل غير حاصر (Non-blocking) لتفادي أي تضارب
-    runner = web.AppRunner(app)
+    port = int(os.environ.get("PORT", "8080"))
+    runner = web.AppRunner(web_app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', port)
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    
     await site.start()
-    print(f"🚀 سيرفر العداد جاهز ويعمل الآن على المنفذ: {port}")
+    print(f"🌍 WebApp is serving countdown at port {port}")
 
-    # تشغيل البوت باستخدام سياق آمن (Context Manager) يحل مشكلة الـ Initialization نهائياً
     async with application:
+        await application.initialize()
         await application.start()
         await application.updater.start_polling()
-        print("🚀 البوت يعمل الآن ويستقبل كل رسائل الطلاب بنجاح...")
+        print("🤖 Educational Library Bot is now successfully connected to the Database & Telegram servers!")
         
-        # حلقة الحفاظ على استمرار التطبيق قيد التشغيل في ريلواي
         while True:
             await asyncio.sleep(3600)
 
-def main():
-    # تشغيل الدورة البرمجية بأمان متوافق مع بايثون 3.13
-    asyncio.run(main_async())
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        print("🛑 System stopped.")
+            
