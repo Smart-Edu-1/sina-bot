@@ -10,36 +10,36 @@ from supabase import create_client, Client
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
-# رابط الـ WebApp الخاص بـ Lovable المباشر والمصلح
+# رابط الـ WebApp الخاص بـ Lovable
 LOVABLE_WEBAPP_URL = "https://757036d6-7867-4d7e-9330-9af8a7e2c598.lovableproject.com"
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6In55cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInT5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 🌟 المصفوفة الذكية: ربط الشكل الرسومي الفخم بكود المادة الداخلي 🌟 ---
+# --- 🌟 المواد بالأسماء العربية والرموز الأيقونية المرجعية الفخمة 🌟 ---
 SUBJECTS = {
-    "📐  الرّياضـيات ｜ Math": "math",
-    "⚡  الفـيزياء ｜ Physics": "phys",
-    "🧪  الكـيمياء ｜ Chemistry": "chem",
-    "🧬  العـلوم الحـياتية ｜ Science": "science",
-    "🕌  التربـية الإسـلامية ｜ Islamic": "islamic",
-    "📚  اللّـغة العربـية ｜ Arabic": "arabic",
-    "🇬🇧  اللّـغة الإنـجليزية ｜ English": "english",
-    "🇫🇷  اللّـغة الفرنـسية ｜ French": "french",
+    "الرياضيات 📐": "math",
+    "الفيزياء ⚛️": "phys",
+    "الكيمياء ⚗️": "chem",
+    "علم الأحياء 🔬": "science",
+    "التربية الإسلامية 🕋": "islamic",
+    "اللغة العربية 📚": "arabic",
+    "اللغة الإنجليزية 🇬🇧": "english",
+    "اللغة الفرنسية 🇨🇵": "french",
 }
 
 CATEGORIES = {
-    "📖  الـكتاب المـدرسي الأصلي": "book",
-    "📝  الـملخصات والخرائط الذهنية": "notes",
-    "📒  الـنوط والـدوسيات الشاملة": "notebook",
-    "💡  المـلاحظات الـتذكيرية والفرعية": "remarks",
-    "📅  أسئلة الدورات 🌟 (حسب السنة)": "exams_year",
-    "📝  أسئلة الدورات 🌟 (كاملة الشرح)": "exams_all",
-    "🔍  أسئلة الدورات 🌟 (حسب الأبحاث)": "exams_topic",
-    "🔊  الأحاديث الشريفة ｜ صوتي": "hadith_audio",
-    "🔊  الآيات القرآنيـة ｜ صوتي": "quran_audio"
+    "📖 الكتاب المدرسي": "book",
+    "📝 الملخصات الذهنية": "notes",
+    "📒 النوط الشاملة": "notebook",
+    "💡 ملاحظات تذكيرية": "remarks",
+    "📅 أسئلة الدورات (حسب السنة)": "exams_year",
+    "📝 أسئلة الدورات (كاملة الشرح)": "exams_all",
+    "🔍 أسئلة الدورات (حسب الأبحاث)": "exams_topic",
+    "🔊 الأحاديث الشريفة": "hadith_audio",
+    "🔊 الآيات القرآنية": "quran_audio"
 }
 
 def register_student_to_supabase(user):
@@ -52,51 +52,52 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المحدثة بالتصميم الفاخر ---
+# --- لوحات المفاتيح السفلية المنسقة هندسياً مثل البوت المرجعي ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
-        [KeyboardButton("⏳  مـؤقت الـعداد التـنازلي للوزاري", web_app=WebAppInfo(url=LOVABLE_WEBAPP_URL))],
-        [KeyboardButton("📂  تـصفح الـمواد الدراسيـة"), KeyboardButton("📢  طـلب إعـلان")],
-        [KeyboardButton("💬  تـواصل مـع الإدارة")]
-    ], resize_keyboard=True, input_field_placeholder="🚀 استكشف موقعك التعليمي من هنا...")
+        [KeyboardButton("⏱️ العداد التنازلي للامتحانات", web_app=WebAppInfo(url=LOVABLE_WEBAPP_URL))],
+        [KeyboardButton("🗂️ تصفح المواد الدراسية"), KeyboardButton("📢 طلب إعلان للمكتبة")],
+        [KeyboardButton("💬 تواصل مع الإدارة")]
+    ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
 
 def get_subjects_keyboard():
     keys = list(SUBJECTS.keys())
+    # توزيع المواد في شبكة متناسقة ومريحة للعين مثل لقطة الشاشة تماماً
     return ReplyKeyboardMarkup([
         [keys[0], keys[1]],
         [keys[2], keys[3]],
         [keys[4], keys[5]],
         [keys[6], keys[7]],
-        ["🔙  الـعودة للـقائمة الرئـيسية"]
-    ], resize_keyboard=True, input_field_placeholder="📚 اختر المادة الفاخرة للبدء...")
+        ["🔙 العودة للقائمة الرئيسية"]
+    ], resize_keyboard=True, input_field_placeholder="اختر المادة لتصفح رصيد ملفاتها...")
 
 def get_categories_keyboard(subject_name):
     keyboard = [
-        ["📖  الـكتاب المـدرسي الأصلي", "📝  الـملخصات والخرائط الذهنية"],
-        ["📒  الـنوط والـدوسيات الشاملة", "💡  المـلاحظات الـتذكيرية والفرعية"],
-        ["📂  أرشـيف أسئلـة الـسنوات الـسابقة"]
+        ["📖 الكتاب المدرسي", "📝 الملخصات الذهنية"],
+        ["📒 النوط الشاملة", "💡 ملاحظات تذكيرية"],
+        ["📂 أسئلة السنوات السابقة"]
     ]
-    if "الإسـلامية" in subject_name or "Islamic" in subject_name:
-        keyboard.insert(2, ["🔊  الأحاديث الشريفة ｜ صوتي", "🔊  الآيات القرآنيـة ｜ صوتي"])
-    keyboard.append(["🔙  تغـيير المـادة المـحددة"])
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="📂 مستندات المادة المحددة...")
+    if "الإسلامية" in subject_name or "🕋" in subject_name:
+        keyboard.insert(2, ["🔊 الأحاديث الشريفة", "🔊 الآيات القرآنية"])
+    keyboard.append(["🔙 تغيير المادة المحددة"])
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر القسم المطلوب...")
 
 def get_exams_keyboard():
     return ReplyKeyboardMarkup([
-        ["📅  حسب السنة", "📝  كاملة الشرح"],
-        ["🔍  حسب الأبحاث"],
-        ["🔙  الـعودة لأقـسام المـادة"]
-    ], resize_keyboard=True, input_field_placeholder="📊 اختر طريقة فرز الأسئلة الوزارية...")
+        ["📅 حسب السنة", "📝 كاملة الشرح"],
+        ["🔍 حسب الأبحاث"],
+        ["🔙 العودة لأقسام المادة"]
+    ], resize_keyboard=True, input_field_placeholder="اختر طريقة فرز الأسئلة...")
 
-# --- منطق معالجة الرسائل المصلح هندسياً ---
+# --- منطق معالجة الرسائل المستقر والقوي ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
     
     await update.effective_message.reply_text(
-        "👋 **أهلاً بك في بوت المكتبة التعليمية الفاخر الجديد!**\n\n"
-        "✨ تم تحديث الواجهات الرسومية وإصلاح رابط العداد التنازلي بنجاح.\n\n"
-        "استخدم الأزرار بالأسفل للتصفح الأنيق:",
+        "👋 **أهلاً بك في بوت المكتبة التعليمية المطور!**\n\n"
+        "✨ تم تحديث واجهات الأزرار بالرموز الأيقونية الفاخرة لتجربة تصفح مثالية.\n\n"
+        "استخدم الأزرار بالأسفل للتحكم والتنقل:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
@@ -105,29 +106,28 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # معالجة أزرار العودة السلسة لتشمل الأشكال القديمة والجديدة منعاً للتعليق
-    if text in ["🔙  الـعودة للـقائمة الرئـيسية", "🔙 العودة للقائمة الرئيسية", "🏠 الرئيسية", "العودة للقائمة الرئيسية"]:
+    if text in ["🔙 العودة للقائمة الرئيسية", "🏠 الرئيسية"]:
         user_data.clear()
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
         return
 
-    elif text in ["📂  تـصفح الـمواد الدراسيـة", "📚 تصفح المواد الدراسية", "🔙  تغـيير المـادة المـحددة", "🔙 تغيير المادة المحددة"]:
-        await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من التصميم الفاخر المحدث:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
+    elif text in ["🗂️ تصفح المواد الدراسية", "📚 تصفح المواد الدراسية", "🔙 تغيير المادة المحددة"]:
+        await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من القائمة الأيقونية المحدثة:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
         return
 
-    elif text in ["📢  طـلب إعـلان", "📢 طلب إعلان للمكتبة", "💬  تـواصل مـع الإدارة", "💬 تواصل مع الإدارة"]:
+    elif text in ["📢 طلب إعلان للمكتبة", "💬 تواصل مع الإدارة"]:
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # رصد اختيار المادة بالتصميم الجديد
+    # التحقق الديناميكي الفوري من اختيار المادة بالرموز الجديدة
     if text in SUBJECTS:
         user_data["current_subject_name"] = text
         user_data["current_subject_code"] = SUBJECTS[text]
-        await update.message.reply_text(f"✨ لقد فتحت الآن خزنة ملفات:\n🎯 *{text}*\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار الهندسية بالأسفل:", reply_markup=get_categories_keyboard(text), parse_mode="Markdown")
+        await update.message.reply_text(f"✨ لقد فتحت الآن رفوف مادة:\n🎯 *{text}*\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار بالأسفل:", reply_markup=get_categories_keyboard(text), parse_mode="Markdown")
         return
 
-    # أرشيف أسئلة السنوات السابقة
-    if text in ["📂  أرشـيف أسئلـة الـسنوات الـسابقة", "📂 أسئلة السنوات السابقة", "🔙  الـعودة لأقـسام المـادة", "🔙 العودة لأقسام المادة"]:
+    # أرشيف أسئلة السنوات
+    if text in ["📂 أسئلة السنوات السابقة", "🔙 العودة لأقسام المادة"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ يرجى اختيار المادة أولاً.", reply_markup=get_subjects_keyboard())
             return
@@ -135,16 +135,15 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # جلب ومعالجة المحتويات من قاعدة البيانات فوراً
-    if text in CATEGORIES or text in ["📅  حسب السنة", "📅 حسب السنة", "📝  كاملة الشرح", "📝 كاملة الشرح", "🔍  حسب الأبحاث", "🔍 حسب الأبحاث"]:
+    if text in CATEGORIES or text in ["📅 حسب السنة", "📝 كاملة الشرح", "🔍 حسب الأبحاث"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
             return
         
-        # خريطة الربط المرنة للنصوص القديمة والجديدة
         cat_map = {
-            "📅  حسب السنة": "exams_year", "📅 حسب السنة": "exams_year",
-            "📝  كاملة الشرح": "exams_all", "📝 كاملة الشرح": "exams_all",
-            "🔍  حسب الأبحاث": "exams_topic", "🔍 حسب الأبحاث": "exams_topic"
+            "📅 حسب السنة": "exams_year",
+            "📝 كاملة الشرح": "exams_all",
+            "🔍 حسب الأبحاث": "exams_topic"
         }
         category_code = cat_map.get(text, CATEGORIES.get(text))
         subject_code = user_data["current_subject_code"]
@@ -159,7 +158,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         if not files_list:
-            await update.message.reply_text(f"⚠️ لا توجد ملفات مرفوعة حالياً من لوحة تحكم الموقع في هذا القسم.")
+            await update.message.reply_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم.")
             return
 
         for f in files_list:
@@ -191,7 +190,7 @@ async def main():
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Educational Library Bot is now running perfectly with Lovable WebApp!")
+    print("🤖 Educational Library Bot is now running perfectly!")
     
     try:
         while True:
