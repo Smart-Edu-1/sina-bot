@@ -10,15 +10,15 @@ from supabase import create_client, Client
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
-# رابط الـ WebApp الخاص بـ Lovable
+# رابط الـ WebApp الخاص بـ Lovable المباشر والمصلح
 LOVABLE_WEBAPP_URL = "https://757036d6-7867-4d7e-9330-9af8a7e2c598.lovableproject.com"
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6In55cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3M0A5MjE2MDEsImV4cCI6MjA1NzYwOTYwMH0.kG2PzNGb3ta9vu58gZrkCYZj0YTk3VhsNTa-6fiUZ3M"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 🌟 المصفوفة المحدثة: تصميم أيقوني هندسي فاخر للمواد 🌟 ---
+# --- 🌟 المصفوفة الذكية: ربط الشكل الرسومي الفخم بكود المادة الداخلي 🌟 ---
 SUBJECTS = {
     "📐  الرّياضـيات ｜ Math": "math",
     "⚡  الفـيزياء ｜ Physics": "phys",
@@ -30,7 +30,6 @@ SUBJECTS = {
     "🇫🇷  اللّـغة الفرنـسية ｜ French": "french",
 }
 
-# --- 🌟 مظهر أقسام المواد المحدث ليواكب التصميم الفخم 🌟 ---
 CATEGORIES = {
     "📖  الـكتاب المـدرسي الأصلي": "book",
     "📝  الـملخصات والخرائط الذهنية": "notes",
@@ -53,12 +52,12 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية الذكية بالتنسيق الجديد ---
+# --- لوحات المفاتيح السفلية المحدثة بالتصميم الفاخر ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("⏳  مـؤقت الـعداد التـنازلي للوزاري", web_app=WebAppInfo(url=LOVABLE_WEBAPP_URL))],
-        [KeyboardButton("📂  تـصفح الـمواد الدراسيـة"), KeyboardButton("📢  طـلب إعـلان")]
-        ,[KeyboardButton("💬  تـواصل مـع الإدارة")]
+        [KeyboardButton("📂  تـصفح الـمواد الدراسيـة"), KeyboardButton("📢  طـلب إعـلان")],
+        [KeyboardButton("💬  تـواصل مـع الإدارة")]
     ], resize_keyboard=True, input_field_placeholder="🚀 استكشف موقعك التعليمي من هنا...")
 
 def get_subjects_keyboard():
@@ -69,7 +68,7 @@ def get_subjects_keyboard():
         [keys[4], keys[5]],
         [keys[6], keys[7]],
         ["🔙  الـعودة للـقائمة الرئـيسية"]
-    ], resize_keyboard=True, input_field_placeholder="📚 اختر المادة التي ترغب بدراستها...")
+    ], resize_keyboard=True, input_field_placeholder="📚 اختر المادة الفاخرة للبدء...")
 
 def get_categories_keyboard(subject_name):
     keyboard = [
@@ -77,10 +76,10 @@ def get_categories_keyboard(subject_name):
         ["📒  الـنوط والـدوسيات الشاملة", "💡  المـلاحظات الـتذكيرية والفرعية"],
         ["📂  أرشـيف أسئلـة الـسنوات الـسابقة"]
     ]
-    if "الإسـلامية" in subject_name:
+    if "الإسـلامية" in subject_name or "Islamic" in subject_name:
         keyboard.insert(2, ["🔊  الأحاديث الشريفة ｜ صوتي", "🔊  الآيات القرآنيـة ｜ صوتي"])
     keyboard.append(["🔙  تغـيير المـادة المـحددة"])
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder=f"📂 مستندات مادة {subject_name}...")
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="📂 مستندات المادة المحددة...")
 
 def get_exams_keyboard():
     return ReplyKeyboardMarkup([
@@ -89,15 +88,15 @@ def get_exams_keyboard():
         ["🔙  الـعودة لأقـسام المـادة"]
     ], resize_keyboard=True, input_field_placeholder="📊 اختر طريقة فرز الأسئلة الوزارية...")
 
-# --- منطق معالجة الرسائل والقوائم السفلية ---
+# --- منطق معالجة الرسائل المصلح هندسياً ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
     
     await update.effective_message.reply_text(
-        "👋 **أهلاً بك في بوت المكتبة التعليمية الفاخر!**\n\n"
-        "لقد قمنا بتحديث كامل التصميم الداخلي لتجربة تصفح غاية في الروعة والجمال ومريحة جداً لعينيك أثناء الدراسة 🌟.\n\n"
-        "اضغط على الأزرار المحدثة في الأسفل للبدء والتحكم بالبوت:",
+        "👋 **أهلاً بك في بوت المكتبة التعليمية الفاخر الجديد!**\n\n"
+        "✨ تم تحديث الواجهات الرسومية وإصلاح رابط العداد التنازلي بنجاح.\n\n"
+        "استخدم الأزرار بالأسفل للتصفح الأنيق:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
@@ -106,28 +105,29 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    if text == "🔙  الـعودة للـقائمة الرئـيسية" or text == "🏠 الرئيسية":
+    # معالجة أزرار العودة السلسة لتشمل الأشكال القديمة والجديدة منعاً للتعليق
+    if text in ["🔙  الـعودة للـقائمة الرئـيسية", "🔙 العودة للقائمة الرئيسية", "🏠 الرئيسية", "العودة للقائمة الرئيسية"]:
         user_data.clear()
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
         return
 
-    elif text == "📂  تـصفح الـمواد الدراسيـة" or text == "🔙  تغـيير المـادة المـحددة":
-        await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من التصميم الأنيق أدناه:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
+    elif text in ["📂  تـصفح الـمواد الدراسيـة", "📚 تصفح المواد الدراسية", "🔙  تغـيير المـادة المـحددة", "🔙 تغيير المادة المحددة"]:
+        await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من التصميم الفاخر المحدث:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
         return
 
-    elif text == "📢  طـلب إعـلان" or text == "💬  تـواصل مـع الإدارة":
+    elif text in ["📢  طـلب إعـلان", "📢 طلب إعلان للمكتبة", "💬  تـواصل مـع الإدارة", "💬 تواصل مع الإدارة"]:
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # رصد اختيار المادة
+    # رصد اختيار المادة بالتصميم الجديد
     if text in SUBJECTS:
         user_data["current_subject_name"] = text
         user_data["current_subject_code"] = SUBJECTS[text]
-        await update.message.reply_text(f"✨ لقد فتحت الآن خزنة ملفات:\n🎯 *{text}*\n\nيرجى تحديد التصنيف المراد عرضه والتصفح من الأزرار الهندسية بالأسفل:", reply_markup=get_categories_keyboard(text), parse_mode="Markdown")
+        await update.message.reply_text(f"✨ لقد فتحت الآن خزنة ملفات:\n🎯 *{text}*\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار الهندسية بالأسفل:", reply_markup=get_categories_keyboard(text), parse_mode="Markdown")
         return
 
-    # أقسام أسئلة السنوات
-    if text == "📂  أرشـيف أسئلـة الـسنوات الـسابقة" or text == "🔙  الـعودة لأقـسام المـادة":
+    # أرشيف أسئلة السنوات السابقة
+    if text in ["📂  أرشـيف أسئلـة الـسنوات الـسابقة", "📂 أسئلة السنوات السابقة", "🔙  الـعودة لأقـسام المـادة", "🔙 العودة لأقسام المادة"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ يرجى اختيار المادة أولاً.", reply_markup=get_subjects_keyboard())
             return
@@ -135,15 +135,16 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # جلب ومعالجة المحتويات من قاعدة البيانات فوراً
-    if text in CATEGORIES or text in ["📅  حسب السنة", "📝  كاملة الشرح", "🔍  حسب الأبحاث"]:
+    if text in CATEGORIES or text in ["📅  حسب السنة", "📅 حسب السنة", "📝  كاملة الشرح", "📝 كاملة الشرح", "🔍  حسب الأبحاث", "🔍 حسب الأبحاث"]:
         if "current_subject_code" not in user_data:
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
             return
         
+        # خريطة الربط المرنة للنصوص القديمة والجديدة
         cat_map = {
-            "📅  حسب السنة": "exams_year",
-            "📝  كاملة الشرح": "exams_all",
-            "🔍  حسب الأبحاث": "exams_topic"
+            "📅  حسب السنة": "exams_year", "📅 حسب السنة": "exams_year",
+            "📝  كاملة الشرح": "exams_all", "📝 كاملة الشرح": "exams_all",
+            "🔍  حسب الأبحاث": "exams_topic", "🔍 حسب الأبحاث": "exams_topic"
         }
         category_code = cat_map.get(text, CATEGORIES.get(text))
         subject_code = user_data["current_subject_code"]
@@ -205,4 +206,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-    
+        
