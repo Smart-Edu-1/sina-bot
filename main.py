@@ -392,6 +392,7 @@ async def complete_file_save(message, context, reciter_name=None):
     context.user_data.clear()
 
 # --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
+# --- معالجة استقبال الملفات والصوتيات المرفوعة من الأدمن ---
 async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID: 
         return
@@ -401,4 +402,63 @@ async def handle_document_or_audio(update: Update, context: ContextTypes.DEFAULT
 
     # التحقق إذا كان المرفق ملفاً عاديًا (PDF، نوطة، إلخ)
     if update.message.document:
-        fi
+        file_id = update.message.document.file_id
+        file_name = update.message.document.file_name
+    # التحقق إذا كان المرفق ملفاً صوتياً (أحاديث، آيات)
+    elif update.message.audio:
+        file_id = update.message.audio.file_id
+        file_name = update.message.audio.title or "تسجيل صوتي"
+
+    if file_id:
+        # حفظ بيانات الملف مؤقتاً في جلسة الأدمن لحين اختيار التصنيف
+        context.user_data["last_file_id"] = file_id
+        context.user_data["last_file_name"] = file_name
+        
+        # إنشاء لوحة أزرار المواد للأدمن ليختار أين يفرز الملف
+        keyboard = []
+        sub_keys = list(SUBJECTS.keys())
+        for i in range(0, len(sub_keys), 2):
+            row = [
+                InlineKeyboardButton(SUBJECTS[sub_keys[i]], callback_data=f"admin_set_subj_{sub_keys[i]}"),
+                InlineKeyboardButton(SUBJECTS[sub_keys[i+1]], callback_data=f"admin_set_subj_{sub_keys[i+1]}") if i+1 < len(sub_keys) else None
+            ]
+            keyboard.append([b for b in row if b is not None])
+            
+        # إضافة خيار إضافي لبرنامج الامتحان الرسمي
+        keyboard.append([InlineKeyboardButton("📅 برنامج الامتحان الرسمي", callback_data="admin_set_subj_schedule")])
+        
+        await update.message.reply_text(
+            f"📥 *تم استقبال الملف بنجاح:*\n`{file_name}`\n\nالآن، الرجاء تحديد المادة التي ترغب في تصنيف وحفظ هذا الملف بداخلها:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
+# --- الدالة الأساسية لتشغيل البوت وسيرفر الويب معاً ---
+def main():
+    # 1. بناء تطبيق تيليجرام
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    # 2. تسجيل مستقبِلات الأوامر والرسائل
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(handle_callback))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
+    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, handle_document_or_audio))
+
+    # 3. إعداد سيرفر WebApp العداد التنازلي المدمجة عبر aiohttp
+    app = web.Application()
+    app.router.add_get('/countdown', countdown_page)
+
+    # تشغيل السيرفر والبوت بالتوازي
+    port = int(os.environ.get("PORT", 8080))
+    
+    # حلقة تشغيل ذكية مدمجة لـ Railway
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.initialize())
+    loop.create_task(application.start())
+    loop.create_task(application.updater.start_polling())
+    
+    print(f"🚀 البوت يعمل الآن وسيرفر العداد جاهز على المنفذ: {port}")
+    web.run_app(app, host='0.0.0.0', port=port, loop=loop)
+
+if __name__ == '__main__':
+    main()
