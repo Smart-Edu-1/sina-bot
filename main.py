@@ -308,6 +308,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=f"📄 *{f['file_name']}*\n🔗 رابط الملف المباشر: {f['file_url']}", parse_mode="Markdown")
 
 # --- الدالة المشغلة المتزامنة للبوت وخادم الويب المدمج ---
+# --- الدالة المشغلة المتزامنة للبوت وخادم الويب المدمج ---
 async def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -315,6 +316,7 @@ async def main():
     application.add_handler(CallbackQueryHandler(handle_callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
+    # تهيئة خادم الويب
     web_app = web.Application()
     web_app.router.add_get('/countdown', countdown_page)
     
@@ -322,22 +324,28 @@ async def main():
     runner = web.AppRunner(web_app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
-    
     await site.start()
     print(f"🌍 WebApp is serving countdown at port {port}")
 
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling()
-        print("🤖 Educational Library Bot is now successfully connected to the Database & Telegram servers!")
-        
+    # بناءً على تحديثات إصدار 21.0 وما بعده، نستخدم الطريقة القياسية للتشغيل المستمر
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    print("🤖 Educational Library Bot is now successfully connected to the Database & Telegram servers!")
+    
+    # حلقة الحفاظ على تشغيل البوت متيقظاً
+    try:
         while True:
             await asyncio.sleep(3600)
+    finally:
+        # إغلاق آمن عند الإيقاف
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-            
+        
