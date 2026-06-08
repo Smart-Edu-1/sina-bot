@@ -6,7 +6,7 @@ from telegram.ext import (
 )
 from supabase import create_client, Client
 
-# --- المتغيرات البيئية وبيانات الربط المحدثة طبقاً لملف الـ env الخاص بك ---
+# --- المتغيرات البيئية وبيانات الربط من ملف الـ env ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
@@ -15,16 +15,16 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- المواد بالأسماء العربية والرموز الأيقونية ---
+# --- 🌟 تم تحديث الأسماء والرموز هنا لتطابق صورة البوت ولوحة التحكم تماماً 🌟 ---
 SUBJECTS = {
-    "الرياضيات 📐": "math",
-    "الفيزياء 🧲": "phys",
-    "الكيمياء ⚗️": "chem",
-    "علم الأحياء 🔬": "science",
-    "التربية الإسلامية 🕋": "islamic",
-    "اللغة العربية 📚": "arabic",
-    "اللغة الإنجليزية 🇬🇧": "english",
-    "اللغة الفرنسية 🇨🇵": "french",
+    "📐 الرياضيات": "math",
+    "⚡ الفيزياء": "phys",
+    "🧪 الكيمياء": "chem",
+    "🧬 العلوم": "science",
+    "🕋 التربية الإسلامية": "islamic",
+    "📚 اللغة العربية": "arabic",
+    "🇬🇧 اللغة الإنجليزية": "english",
+    "🇫🇷 اللغة الفرنسية": "french",
 }
 
 CATEGORIES = {
@@ -49,30 +49,30 @@ def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# --- لوحات المفاتيح السفلية المنسقة ---
+# --- لوحات المفاتيح السفلية المتوافقة مع التصاميم ---
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
-        [KeyboardButton("البكلوريا العلمي 🎓"), KeyboardButton("📢 طلب إعلان للمكتبة")],
-        [KeyboardButton("💬 تواصل مع الإدارة")]
+        [KeyboardButton("📚 تصفح المواد الدراسية"), KeyboardButton("البكلوريا العلمي 🔬")],
+        [KeyboardButton("📢 طلب إعلان للمكتبة"), KeyboardButton("💬 تواصل مع الإدارة")]
     ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
 
 def get_subjects_keyboard():
-    keys = list(SUBJECTS.keys())
+    # ترتيب الأزرار بنفس مظهر الصورة المرفوعة تماماً (يمين ويسار)
     return ReplyKeyboardMarkup([
-        [keys[0], keys[1]],
-        [keys[2], keys[3]],
-        [keys[4], keys[5]],
-        [keys[6], keys[7]],
+        ["⚡ الفيزياء", "📐 الرياضيات"],
+        ["🧬 العلوم", "🧪 الكيمياء"],
+        ["📚 اللغة العربية", "🕋 التربية الإسلامية"],
+        ["🇫🇷 اللغة الفرنسية", "🇬🇧 اللغة الإنجليزية"],
         ["🔙 العودة للقائمة الرئيسية"]
     ], resize_keyboard=True, input_field_placeholder="اختر المادة لتصفح رصيد ملفاتها...")
 
 def get_categories_keyboard(subject_name):
     keyboard = [
-        ["📖 الكتاب المدرسي", "📝 الملخصات الذهنية"],
-        ["📒 النوط الشاملة", "💡 ملاحظات تذكيرية"],
+        ["📝 الملخصات الذهنية", "📖 الكتاب المدرسي"],
+        ["💡 ملاحظات تذكيرية", "📒 النوط الشاملة"],
         ["📂 أسئلة السنوات السابقة"]
     ]
-    if "التربية الإسلامية" in subject_name or "🕋" in subject_name:
+    if "الإسلامية" in subject_name or "🕋" in subject_name:
         keyboard.insert(2, ["🔊 الأحاديث الشريفة", "🔊 الآيات القرآنية"])
     keyboard.append(["🔙 تغيير المادة المحددة"])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر القسم المطلوب...")
@@ -99,14 +99,14 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
-# --- منطق معالجة الرسائل المستقر ذكياً ---
+# --- منطق معالجة الرسائل المرن والمستقر ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
     
     await update.effective_message.reply_text(
-        "👋 **أهلاً بك في بوت المكتبة التعليمية المطور!**\n\n"
-        "✨ اضغط على زر البكلوريا العلمي في القائمة بالأسفل لبدء تصفح المحتوى والملفات المحدثة:",
+        "👋 **أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.**\n\n"
+        "تم تحديث الأيقونات وإصلاح رابط العداد التنازلي بنجاح! يرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
@@ -115,24 +115,25 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # 🌟 فحص مرن وذكي للعودة أو القائمة الرئيسية لتفادي أخطاء الرموز التعبيرية 🌟
+    # فحص مرن للقائمة الرئيسية والعودة
     if "العودة للقائمة الرئيسية" in text or text == "🏠 الرئيسية":
         user_data.clear()
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
         return
 
     elif "البكلوريا العلمي" in text or "تصفح المواد" in text or "تغيير المادة" in text:
-        await update.message.reply_text("✨ **يرجى اختيار المادة المطلوبة من القائمة الأيقونية المحدثة:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text("📚 **اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات الرسومية المحدثة الأنيقة:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
         return
 
     elif "طلب إعلان" in text or "تواصل مع الإدارة" in text:
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # التحقق من اختيار المادة (بواسطة النص أو الكلمة المفتاحية)
+    # فحص اختيار المادة بالاعتماد على الاسم الأساسي لتفادي أي تغيير في الرموز التعبيرية
     matched_subject = None
     for k in SUBJECTS.keys():
-        if text in k or k in text:
+        pure_subject_name = k.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
+        if pure_subject_name in text:
             matched_subject = k
             break
 
@@ -159,24 +160,24 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 *{subject_name}*", reply_markup=get_categories_keyboard(subject_name), parse_mode="Markdown")
         return
 
-    # جلب ومعالجة المحتويات من قاعدة البيانات (فحص مرن للأزرار)
+    # جلب ومعالجة المحتويات من قاعدة البيانات (فحص مرن للمطابقة مع أسماء التصنيفات)
     matched_category_code = None
     cat_map = {
         "حسب السنة": "exams_year",
         "كاملة الشرح": "exams_all",
-        "حسب الأبحاث": "exams_topic"
+        "حسب الأبحاث": "exams_topic",
+        "الملخصات": "notes",
+        "الكتاب المدرسي": "book",
+        "النوط الشاملة": "notebook",
+        "ملاحظات تذكيرية": "remarks",
+        "الأحاديث": "hadith_audio",
+        "الآيات": "quran_audio"
     }
     
     for k, v in cat_map.items():
         if k in text:
             matched_category_code = v
             break
-            
-    if not matched_category_code:
-        for k, v in CATEGORIES.items():
-            if k in text or text in k:
-                matched_category_code = v
-                break
 
     if matched_category_code:
         if "current_subject_code" not in user_data:
@@ -227,7 +228,7 @@ async def main():
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Bot is running perfectly with loose text matching!")
+    print("🤖 Bot is completely synchronized with Lovable layout!")
     
     try:
         while True:
@@ -242,4 +243,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-    
+        
