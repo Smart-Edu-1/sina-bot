@@ -39,13 +39,16 @@ CATEGORIES = {
     "🔊 الآيات القرآنية": "quran_audio"
 }
 
-def register_student_to_supabase(user):
+# تحويل دالة التسجيل لتصبح متوافقة مع الـ Async عبر الخيوط المنفصلة
+async def register_student_to_supabase(user):
     try:
-        supabase.table("students").upsert({
-            "telegram_id": user.id, 
-            "username": user.username, 
-            "first_name": user.first_name
-        }, on_conflict="telegram_id").execute()
+        await asyncio.to_thread(
+            lambda: supabase.table("students").upsert({
+                "telegram_id": user.id, 
+                "username": user.username, 
+                "first_name": user.first_name
+            }, on_conflict="telegram_id").execute()
+        )
     except Exception as e:
         print(f"Error registering student: {e}")
 
@@ -100,7 +103,7 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- منطق معالجة الرسائل المستقر ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_student_to_supabase(update.effective_user)
+    await register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
     await update.effective_message.reply_text(
         "👋 **أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.**\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
@@ -182,7 +185,14 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
         
         try:
-            response = supabase.table("materials").select("*").eq("subject", subject_code).eq("category", matched_category_code).execute()
+            # 🚀 حل التجميد: تشغيل طلب الاستعلام في Thread خلفي منفصل
+            response = await asyncio.to_thread(
+                lambda: supabase.table("materials")
+                .select("*")
+                .eq("subject", subject_code)
+                .eq("category", matched_category_code)
+                .execute()
+            )
             files_list = response.data if response.data else []
         except Exception as e:
             await update.message.reply_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ:**\n\n`{str(e)}`", parse_mode="Markdown")
@@ -192,39 +202,60 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم.")
             return
 
-        # 🌟 معالجة وإرسال الملفات مع الحماية البرمجية ومطابقة الحقول الديناميكية 🌟
+        sent_count = 0
+        # 🌟 معالجة وإرسال الملفات مع الحماية البرمجية 🌟
         for f in files_list:
             try:
-                # جلب اسم الملف بشكل مرن حسب مسميات الأعمدة المتوقعة
                 file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف بدون اسم"
                 caption_text = f"📄 {file_name}"
                 if f.get("reciter_name"):
                     caption_text += f"\n🎙️ بصوت القارئ: {f['reciter_name']}"
                 
-                # فحص الحقول المختلفة للرابط لضمان التوافق الكامل مع Lovable DB
                 f_id = f.get("file_id")
                 f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
                 
                 if f_id:
-                    if matched_category_code in ["hadith_audio", "quran_audio"]:
-                        await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
-                    else:
-                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
+                    try:
+                        if matched_category_code in ["hadith_audio", "quran_audio"]:
+                            await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
+                        else:
+                            await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
+                        sent_count += 1
+                    except Exception as telegram_err:
+                        # إذا فشل الـ file_id، نحاول فوراً استخدام الرابط المباشر إن وجد كخيار بديل
+                        if f_url:
+                            try:
+                                if matched_category_code in ["hadith_audio", "quran_audio"]:
+                                    await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
+                                else:
+                                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
+                                sent_count += 1
+                            except Exception:
+                                await update.message.reply_text(f"📄 {file_name}\n\n🔗 **رابط التحميل البديل:**\n{f_url}")
+                                sent_count += 1
+                        else:
+                            await update.message.reply_text(f"⚠️ فشل إرسال الملف `{file_name}` عبر الـ ID الخاص به.\nالسبب: قد يكون الـ file_id غير صحيح أو تم رفعه بواسطة بوت آخر.")
+                
                 elif f_url:
-                    # محاولة إرسال الرابط كملف مباشر، وفي حال تعذر ذلك يتم إرساله كرابط نصي فوراً
                     try:
                         if matched_category_code in ["hadith_audio", "quran_audio"]:
                             await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
                         else:
                             await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
+                        sent_count += 1
                     except Exception:
                         await update.message.reply_text(f"{caption_text}\n\n🔗 **رابط التحميل المباشر للمستند:**\n{f_url}", parse_mode="Markdown")
+                        sent_count += 1
                 else:
-                    # في حال عدم العثور على أي حقل رابط، يطبع أسماء الأعمدة للمساعدة في معرفة هيكلة الجدول
-                    await update.message.reply_text(f"⚠️ تم العثور على الملف ولكن لم يتم تحديد عمود الرابط بنجاح.\nالأعمدة الحالية في جدولك هي:\n`{list(f.keys())}`", parse_mode="Markdown")
+                    await update.message.reply_text(f"⚠️ تم العثور على الصف ولكن لم يتم تحديد عمود الرابط أو الـ ID بنجاح.\nالأعمدة المتوفرة بجدولك: `{list(f.keys())}`")
+            
             except Exception as row_error:
                 print(f"Error parsing row: {row_error}")
+                await update.message.reply_text(f"❌ حدث خطأ أثناء معالجة السطر: `{str(row_error)}`")
                 continue
+        
+        if sent_count == 0:
+            await update.message.reply_text("⚠️ تم جلب البيانات ولكن لم ينجح البوت في إرسال أي ملف. يرجى مراجعة الروابط والمعرفات المدخلة في قاعدة البيانات.")
         return
 
     await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
@@ -255,4 +286,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-            
+                            
