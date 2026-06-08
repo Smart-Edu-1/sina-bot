@@ -18,13 +18,13 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # --- 🌟 المواد بالأسماء العربية والرموز الأيقونية الفخمة 🌟 ---
 SUBJECTS = {
     "الرياضيات 📐": "math",
-    "الفيزياء 🧲": "phys",
+    "الفيزياء 🌀": "phys",
     "الكيمياء ⚗️": "chem",
     "علم الأحياء 🔬": "science",
     "التربية الإسلامية 🕋": "islamic",
     "اللغة العربية 📚": "arabic",
-    "اللغة الإنجليزية 🇬🇧": "english",
-    "اللغة الفرنسية 🇨🇵": "french",
+    "اللغة الإنجليزية 🔤": "english",
+    "اللغة الفرنسية 🗼": "french",
 }
 
 CATEGORIES = {
@@ -86,7 +86,6 @@ def get_exams_keyboard():
 
 # --- ميزة التقاط معرفات الملفات تلقائياً (File ID Catcher) ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التقاط معرف ملفات الـ PDF
     if update.message.document:
         f_id = update.message.document.file_id
         await update.message.reply_text(
@@ -94,7 +93,6 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"اضغط عليه للنسخ فوراً:\n`{f_id}`", 
             parse_mode="Markdown"
         )
-    # التقاط معرف ملفات الصوت
     elif update.message.audio:
         f_id = update.message.audio.file_id
         await update.message.reply_text(
@@ -172,11 +170,12 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
         
+        # 🌟 تعديل هنا لطرد نص الخطأ الحقيقي ومعرفته 🌟
         try:
             response = supabase.table("materials").select("*").eq("subject", subject_code).eq("category", category_code).execute()
             files_list = response.data if response.data else []
         except Exception as e:
-            await update.message.reply_text("⚠️ حدث خطأ أثناء الاتصال بقاعدة البيانات.")
+            await update.message.reply_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ البرمجي:**\n\n`{str(e)}`", parse_mode="Markdown")
             return
         
         if not files_list:
@@ -207,17 +206,13 @@ async def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    
-    # 🌟 استقبال الملفات والصوتيات واستخراج معرفاتها أولاً
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
-    
-    # استقبال نصوص لوحة التحكم والأزرار
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
-    print("🤖 Educational Library Bot is now running perfectly with File Catcher!")
+    print("🤖 Educational Library Bot is now running perfectly!")
     
     try:
         while True:
@@ -232,4 +227,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-            
+        
