@@ -33,6 +33,32 @@ SUBJECTS = {
     "🇫🇷 اللغة الفرنسية": "french",
 }
 
+# --- ميزة الإعلانات التلقائية (من قاعدة البيانات) ---
+async def broadcast_announcement(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        # جلب الإعلانات التي لم تُرسل بعد
+        response = supabase.table("announcements").select("*").eq("is_sent", False).execute()
+        if not response.data:
+            return
+
+        # جلب جميع الطلاب
+        students = supabase.table("students").select("telegram_id").execute()
+        
+        for ann in response.data:
+            msg = ann['message']
+            for student in students.data:
+                try:
+                    await context.bot.send_message(chat_id=student['telegram_id'], text=f"📢 <b>إعلان من المكتبة:</b>\n\n{msg}", parse_mode="HTML")
+                    await asyncio.sleep(0.05) # لمنع حظر البوت
+                except:
+                    continue
+            
+            # تحديث الحالة إلى "تم الإرسال"
+            supabase.table("announcements").update({"is_sent": True}).eq("id", ann['id']).execute()
+            logger.info(f"تم بث الإعلان رقم {ann['id']} بنجاح.")
+    except Exception as e:
+        logger.error(f"خطأ في نظام الإعلانات: {e}")
+
 async def register_student_to_supabase(user):
     try:
         await asyncio.to_thread(
@@ -44,26 +70,6 @@ async def register_student_to_supabase(user):
         )
     except Exception as e:
         logger.error(f"Error registering student: {e}")
-
-# --- ميزة الإعلانات (للمدير فقط) ---
-async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.username != YOUR_TELEGRAM_USERNAME:
-        return
-    
-    text = " ".join(context.args)
-    if not text:
-        await update.message.reply_text("يرجى كتابة الرسالة بعد الأمر. مثال: /announce hello")
-        return
-
-    students = await asyncio.to_thread(lambda: supabase.table("students").select("telegram_id").execute())
-    count = 0
-    for student in students.data:
-        try:
-            await context.bot.send_message(chat_id=student['telegram_id'], text=f"📢 **إعلان من الإدارة:**\n\n{text}", parse_mode="Markdown")
-            count += 1
-        except:
-            continue
-    await update.message.reply_text(f"✅ تم إرسال الإعلان بنجاح إلى {count} مستخدم.")
 
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
@@ -143,7 +149,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # ميزة برنامج الامتحان (إضافة جديدة)
+    # ميزة برنامج الامتحان
     if "📅 برنامج الامتحان" in text:
         loading_msg = await update.message.reply_text("⏳ جاري جلب برنامج الامتحان...")
         try:
@@ -346,11 +352,13 @@ def main():
 
     application = Application.builder().token(BOT_TOKEN).build()
     
+    # تفعيل نظام الإعلانات التلقائي (يعمل كل ساعة)
+    application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
+
     application.bot_data['add_year'] = False
 
     # تسجيل المعالجات
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("announce", announce)) # تفعيل أمر الإعلانات
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
