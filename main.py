@@ -8,7 +8,7 @@ from supabase import create_client, Client
 
 # --- المتغيرات البيئية وبيانات الربط ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-YOUR_TELEGRAM_USERNAME = "Yousef55641" # يوزرك الخاص للتعرف عليك كمسؤول
+YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
@@ -16,7 +16,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 SUBJECTS = {
     "📐 الرياضيات": "math",
-    "⚡ الفيزياء": "phys",
+    "🧲 الفيزياء": "phys",
     "🧪 الكيمياء": "chem",
     "🧬 العلوم": "science",
     "🕋 التربية الإسلامية": "islamic",
@@ -37,9 +37,10 @@ async def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
+# 🌟 تعديل القائمة الرئيسية: تم الإبقاء على البكلوريا العلمي وحذف الزر المكرر
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
-        [KeyboardButton("📚 تصفح المواد الدراسية"), KeyboardButton("البكلوريا العلمي 🔬")],
+        [KeyboardButton("البكلوريا العلمي 🎓")],
         [KeyboardButton("📢 طلب إعلان للمكتبة"), KeyboardButton("💬 تواصل مع الإدارة")]
     ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
 
@@ -86,17 +87,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_main_keyboard()
     )
 
+async def debug_database(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.username != YOUR_TELEGRAM_USERNAME:
+        await update.message.reply_text("⚠️ هذا الأمر مخصص لإدارة المنصة فقط.")
+        return
+    
+    loading = await update.message.reply_text("⏳ جاري قراءة محتويات جدول المواد الحالية...")
+    try:
+        res = await asyncio.to_thread(
+            lambda: supabase.table("materials").select("*").limit(10).execute()
+        )
+        if not res.data:
+            await loading.edit_text("📂 الجدول فارغ تماماً حالياً في قاعدة البيانات.")
+            return
+        
+        msg = "📋 قائمة الملفات المتوفرة والأسماء السرية المخزنة حالياً:\n\n"
+        for idx, row in enumerate(res.data, 1):
+            name = row.get('file_name') or row.get('title') or row.get('name') or 'بدون اسم'
+            msg += f"{idx}- الملف: {name}\n"
+            msg += f"🔹 المادة (subject): {row.get('subject')}\n"
+            msg += f"🔹 القسم (category): {row.get('category')}\n"
+            msg += "-------------------------\n"
+        await loading.edit_text(msg)
+    except Exception as e:
+        await loading.edit_text(f"❌ فشل الاتصال بقاعدة البيانات: {str(e)}")
+
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
-    is_admin = (update.effective_user.username == YOUR_TELEGRAM_USERNAME)
 
     if "العودة للقائمة الرئيسية" in text or text == "🏠 الرئيسية":
         user_data.clear()
         await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
         return
 
-    elif "البكلوريا العلمي" in text or "تصفح المواد" in text or "تغيير المادة" in text:
+    elif "البكلوريا العلمي" in text or "تغيير المادة" in text:
         await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات الرسومية المحدثة الأنيقة:", reply_markup=get_subjects_keyboard())
         return
 
@@ -133,15 +158,15 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 {subject_name}", reply_markup=get_categories_keyboard(subject_name))
         return
 
-    # خريطة التصنيفات الافتراضية
+    # 🌟 خريطة التصنيفات البرمجية المحدثة والمطابقة لقاعدة البيانات بالملي
     cat_map = {
         "حسب السنة": "exams_year",
-        "كاملة الشرح": "exams_all",
+        "كاملة الشرح": "exams_full",
         "حسب الأبحاث": "exams_topic",
-        "الملخصات": "notes",
+        "الملخصات": "summaries",
         "الكتاب المدرسي": "textbook",  
-        "النوط الشاملة": "notebook",
-        "ملاحظات تذكيرية": "remarks",
+        "النوط": "booklets",
+        "ملاحظات": "notes",
         "الأحاديث": "hadith_audio",
         "الآيات": "quran_audio"
     }
@@ -159,11 +184,10 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         subject_code = user_data["current_subject_code"]
         subject_name = user_data["current_subject_name"]
-        loading_msg = await update.message.reply_text("⏳ جاري فحص المستندات في قاعدة البيانات...")
+        loading_msg = await update.message.reply_text("⏳ جاري فحص وتصفح الرفوف الدراسية...")
         
         files_list = []
         try:
-            # محاولة البحث بالفلاتر المعتمدة
             res1 = await asyncio.to_thread(
                 lambda: supabase.table("materials").select("*").eq("subject", subject_code).eq("category", matched_category_code).execute()
             )
@@ -176,48 +200,12 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 if res2.data:
                     files_list = res2.data
-            
-            if not files_list:
-                pure_sub = subject_name.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
-                pure_cat = text.replace("📝","").replace("📖","").replace("💡","").replace("📒","").replace("📂","").strip()
-                res3 = await asyncio.to_thread(
-                    lambda: supabase.table("materials").select("*").eq("subject", pure_sub).eq("category", pure_cat).execute()
-                )
-                if res3.data:
-                    files_list = res3.data
 
-        except Exception as e:
-            # معالجة الخطأ: الطالب يرى رسالة عامة، والمسؤول يرى التفاصيل التقنية
-            if is_admin:
-                await loading_msg.edit_text(f"⚠️ خطأ اتصال بالسيرفر (يظهر لك بصفتك المطور تنبيه فقط):\n\n{str(e)}")
-            else:
-                await loading_msg.edit_text("⚠️ عذراً، واجهنا مشكلة مؤقتة في جلب الملفات، يرجى المحاولة مرة أخرى لاحقاً.")
+        except Exception:
+            await loading_msg.edit_text("⚠️ عذراً، واجهنا مشكلة مؤقتة في جلب البيانات، يرجى المحاولة لاحقاً.")
             return
         
-        # عند عدم العثور على أي ملفات
         if not files_list:
-            if is_admin:
-                # رادار التشخيص الذكي يظهر لك أنت فقط للتعرف على الأسماء الحقيقية للمواد والتصنيفات
-                try:
-                    debug_res = await asyncio.to_thread(
-                        lambda: supabase.table("materials").select("*").limit(5).execute()
-                    )
-                    if debug_res.data:
-                        debug_msg = "🔍 لوحة تشخيص المطور الذكية (تظهر لك أنت فقط):\n\n"
-                        debug_msg += "القسم الحالي فارغ. إليك عينة من الحقول المخزنة بجدولك لرؤية الكلمات الحقيقية:\n\n"
-                        for idx, row in enumerate(debug_res.data, 1):
-                            debug_msg += f"📋 ملف رقم {idx}:\n"
-                            debug_msg += f"🔹 الاسم الحركي: {row.get('file_name') or row.get('title') or row.get('name')}\n"
-                            debug_msg += f"🔹 عمود المادة (subject): `{row.get('subject')}`\n"
-                            debug_msg += f"🔹 عمود القسم (category): `{row.get('category')}`\n"
-                            debug_msg += "--------------------\n"
-                        debug_msg += "\n💡 قم بنسخ الكلمة المكتوبة أمام (category) للملف الذي وضعته في الملخصات وأرسلها لي لأقوم بربطها!"
-                        await loading_msg.edit_text(debug_msg)
-                        return
-                except Exception:
-                    pass
-            
-            # الرسالة الرسمية الأنيقة التي تظهر للطالب دائماً
             await loading_msg.edit_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في قسم ({text}) لمادة {subject_name}.")
             return
 
@@ -226,7 +214,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         
-        # إرسال الملفات المكتشفة للمستخدمين
         for f in files_list:
             try:
                 file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف تعليمي"
@@ -248,9 +235,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
                     except Exception:
                         await update.message.reply_text(f"{caption_text}\n\n🔗 رابط التحميل المباشر:\n{f_url}")
-                else:
-                    if is_admin:
-                        await update.message.reply_text(f"⚠️ الأعمدة فارغة للمطور. الحقول المتاحة بالجدول: {', '.join(list(f.keys()))}")
             except Exception:
                 continue
         return
@@ -259,7 +243,9 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def main():
     application = Application.builder().token(BOT_TOKEN).build()
+    application.add_year = False 
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("debug", debug_database))
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
@@ -280,4 +266,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-                
+                               
