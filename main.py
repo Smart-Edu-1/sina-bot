@@ -11,9 +11,10 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc2MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# 🌟 تم اعتماد إيموجي المغناطيس الجديد للفيزياء هنا
 SUBJECTS = {
     "📐 الرياضيات": "math",
     "🧲 الفيزياء": "phys",
@@ -37,16 +38,17 @@ async def register_student_to_supabase(user):
     except Exception as e:
         print(f"Error registering student: {e}")
 
-# 🌟 تعديل القائمة الرئيسية: تم الإبقاء على البكلوريا العلمي وحذف الزر المكرر
+# 🌟 القائمة الرئيسية المحدثة بقبعة التخرج وحذف التكرار كما طلبت
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
         [KeyboardButton("البكلوريا العلمي 🎓")],
         [KeyboardButton("📢 طلب إعلان للمكتبة"), KeyboardButton("💬 تواصل مع الإدارة")]
     ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
 
+# 🌟 تم ضبط المغناطيس هنا أيضاً ليتطابق مع الـ Keys تماماً
 def get_subjects_keyboard():
     return ReplyKeyboardMarkup([
-        ["⚡ الفيزياء", "📐 الرياضيات"],
+        ["🧲 الفيزياء", "📐 الرياضيات"],
         ["🧬 العلوم", "🧪 الكيمياء"],
         ["📚 اللغة العربية", "🕋 التربية الإسلامية"],
         ["🇫🇷 اللغة الفرنسية", "🇬🇧 اللغة الإنجليزية"],
@@ -129,10 +131,10 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # فحص المادة المحددة
+    # فحص المادة المحددة مع تنظيف كل أنواع إيموجيات الفيزياء القديمة والجديدة لضمان الفرز
     matched_subject = None
     for k in SUBJECTS.keys():
-        pure_subject_name = k.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
+        pure_subject_name = k.replace("📐","").replace("⚡","").replace("🧲","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
         if pure_subject_name in text:
             matched_subject = k
             break
@@ -158,7 +160,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 {subject_name}", reply_markup=get_categories_keyboard(subject_name))
         return
 
-    # 🌟 خريطة التصنيفات البرمجية المحدثة والمطابقة لقاعدة البيانات بالملي
+    # 🌟 خريطة التصنيفات النهائية المطابقة لقاعدتك بالملي
     cat_map = {
         "حسب السنة": "exams_year",
         "كاملة الشرح": "exams_full",
@@ -243,7 +245,8 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def main():
     application = Application.builder().token(BOT_TOKEN).build()
-    application.add_year = False 
+    
+    # 🎯 تم إزالة سطر الخطأ البرمجي المتسبب في الـ Crash هنا بنجاح!
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("debug", debug_database))
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
@@ -266,4 +269,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-                               
+                
