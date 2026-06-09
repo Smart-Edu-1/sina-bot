@@ -11,7 +11,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-SUPABASE_KEY ="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 SUBJECTS = {
@@ -132,13 +132,13 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 {subject_name}", reply_markup=get_categories_keyboard(subject_name))
         return
 
-    # خريطة التصنيفات
+    # خريطة التصنيفات المحدثة لتطابق سيرفر لوفابل
     cat_map = {
         "حسب السنة": "exams_year",
         "كاملة الشرح": "exams_all",
         "حسب الأبحاث": "exams_topic",
         "الملخصات": "notes",
-        "الكتاب المدرسي": "book",
+        "الكتاب المدرسي": "textbook",  # ✅ تم تعديلها هنا بنجاح لتطابق قاعدة بياناتك الحالية
         "النوط الشاملة": "notebook",
         "ملاحظات تذكيرية": "remarks",
         "الأحاديث": "hadith_audio",
@@ -191,7 +191,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await loading_msg.edit_text(f"⚠️ فشل الاتصال بقاعدة البيانات:\n\n{str(e)}")
             return
         
-        # 🔍 رادار التشخيص الكاشف للبيانات المخزنة فعلياً:
+        # رادار التشخيص (تركته كأمان إضافي لباقي الأقسام مستقبلاً)
         if not files_list:
             try:
                 debug_res = await asyncio.to_thread(
@@ -274,4 +274,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-        
+    
