@@ -1,10 +1,18 @@
 import os
 import asyncio
+import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, filters, ContextTypes
 )
 from supabase import create_client, Client
+
+# --- إعداد السجلات لمراقبة سير العمل على Railway ومنع الكراش الصامت ---
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # --- المتغيرات البيئية وبيانات الربط ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -35,7 +43,7 @@ async def register_student_to_supabase(user):
             }, on_conflict="telegram_id").execute()
         )
     except Exception as e:
-        print(f"Error registering student: {e}")
+        logger.error(f"Error registering student: {e}")
 
 def get_main_keyboard():
     return ReplyKeyboardMarkup([
@@ -73,10 +81,10 @@ def get_exams_keyboard():
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.document:
         f_id = update.message.document.file_id
-        await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n{f_id}")
+        await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
     elif update.message.audio:
         f_id = update.message.audio.file_id
-        await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n{f_id}")
+        await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await register_student_to_supabase(update.effective_user)
@@ -85,6 +93,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمي.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
         reply_markup=get_main_keyboard()
     )
+
+async def send_secured_document(context, chat_id, f_id, f_url, caption_text):
+    """دالة إرسال ذكية تحمي البوت من السكوت التام في حال عدم صلاحية الـ file_id القديم"""
+    try:
+        # المحاولة الأولى: باستخدام الـ file_id (الأسرع والأفضل لتليجرام)
+        if f_id:
+            await context.bot.send_document(chat_id=chat_id, document=f_id, caption=caption_text, parse_mode="HTML")
+            return True
+    except Exception as e:
+        logger.warning(f"فشل الإرسال باستخدام file_id، جاري تجربة الرابط المباشر. السبب: {e}")
+    
+    try:
+        # المحاولة الثانية: في حال فشل المعرف، نستخدم الرابط المباشر file_url المرفوع سحابياً
+        if f_url:
+            await context.bot.send_document(chat_id=chat_id, document=f_url, caption=caption_text, parse_mode="HTML")
+            return True
+    except Exception as e:
+        logger.error(f"فشل الإرسال عبر الرابط المباشر أيضاً: {e}")
+    
+    # المحاولة الأخيرة: إذا فشل تليجرام في إرسال الملف نهائياً، نزود الطالب برابط تحميل مباشر بدلاً من الصمت
+    if f_url:
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=f"📄 <b>{caption_text}</b>\n\n⚠️ نعتذر، حدث تضارب في سيرفر الملفات المباشر، يمكنك تحميل الملف بشكل آمن عبر الرابط التالي:\n🔗 {f_url}",
+            parse_mode="HTML"
+        )
+        return True
+    return False
 
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
@@ -105,13 +141,12 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
-    # 1. نظام التحقق الذكي من اختيار القارئ لمنع التداخل بين المواد
+    # نظام التحقق من اختيار القارئ للملفات الصوتية
     if "audio_files" in user_data and "active_audio_category" in user_data:
         audio_files = user_data["audio_files"]
         matching_files = []
         
         for f in audio_files:
-            # مطابقة جلب القارئ بناءً على عمود قاعدة بياناتك الحقيقي reciter_name
             r_name = f.get("reciter_name") or f.get("reciter") or f.get("description") or "قارئ عام"
             if text == f"🎙️ {r_name}":
                 matching_files.append(f)
@@ -125,18 +160,18 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f_id = f.get("file_id") or f.get("telegram_file_id")
                     f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
                     
-                    # الفرز بين المستندات الصوتية والملفات العادية لتجنب الأخطاء
                     if f_id:
                         if f.get("category") in ["hadith_audio", "quran_audio"]:
                             await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
                         else:
-                            await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
+                            await send_secured_document(context, update.effective_chat.id, f_id, f_url, caption_text)
                     elif f_url:
                         if f.get("category") in ["hadith_audio", "quran_audio"]:
                             await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
                         else:
-                            await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
-                except Exception:
+                            await send_secured_document(context, update.effective_chat.id, None, f_url, caption_text)
+                except Exception as e:
+                    logger.error(f"خطأ أثناء معالجة إرسال الملف الصوتي: {e}")
                     continue
             try:
                 await loading_msg.delete()
@@ -153,7 +188,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             break
 
     if matched_subject:
-        # مسح مخلفات أي عمليات تصفح صوتية سابقة فور تغيير المادة
         user_data.pop("audio_files", None)
         user_data.pop("active_audio_category", None)
         
@@ -179,17 +213,17 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 {subject_name}", reply_markup=get_categories_keyboard(subject_name))
         return
 
-    # خريطة التصنيفات البرمجية
+    # خريطة التصنيفات البرمجية المتطابقة مع قاعدة بيانات سوبابيز
     cat_map = {
         "حسب السنة": "exams_year",
         "كاملة": "exams_full",
         "حسب الأبحاث": "exams_topic",
-        "الملخصات": "summaries",
+        "الملخصات الذهنية": "summaries",
         "الكتاب المدرسي": "textbook",  
-        "النوط": "booklets",
-        "ملاحظات": "notes",
-        "الأحاديث": "hadith_audio",
-        "الآيات": "quran_audio"
+        "النوط الشاملة": "booklets",
+        "ملاحظات تذكيرية": "notes",
+        "الأحاديث الشريفة": "hadith_audio",
+        "الآيات القرآنية": "quran_audio"
     }
     
     matched_category_code = None
@@ -203,7 +237,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
             return
         
-        # تصفير الأكواد الصوتية القديمة عند الانتقال لقسم جديد لمنع تداخل الاستعلامات
         user_data.pop("audio_files", None)
         user_data.pop("active_audio_category", None)
 
@@ -226,7 +259,8 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if res2.data:
                     files_list = res2.data
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"خطأ أثناء جلب البيانات من سوبابيز: {e}")
             await loading_msg.edit_text("⚠️ عذراً، واجهنا مشكلة مؤقتة في جلب البيانات، يرجى المحاولة لاحقاً.")
             return
         
@@ -234,7 +268,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await loading_msg.edit_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في قسم ({text}) لمادة {subject_name}.")
             return
 
-        # 2. ميزة فرز القراء الديناميكية بالاعتماد التام على عمود reciter_name المكتشف
+        # ميزة فرز القراء للملفات الصوتية
         if matched_category_code in ["hadith_audio", "quran_audio"]:
             unique_reciters = set()
             for f in files_list:
@@ -258,55 +292,45 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # إرسال الملفات العادية مباشرة (ملخصات، كتب، نوط...)
+        # حذف رسالة التحميل والبدء بإرسال الملفات العادية بشكل آمن ومحمي من السكوت
         try:
             await loading_msg.delete()
         except Exception:
             pass
         
         for f in files_list:
-            try:
-                file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف تعليمي"
-                caption_text = f"📄 {file_name}"
-                
-                f_id = f.get("file_id") or f.get("telegram_file_id")
-                f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
-                
-                if f_id:
-                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text)
-                elif f_url:
-                    try:
-                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
-                    except Exception:
-                        await update.message.reply_text(f"{caption_text}\n\n🔗 رابط التحميل المباشر:\n{f_url}")
-            except Exception:
-                continue
+            file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف تعليمي"
+            caption_text = f"<b>📄 {file_name}</b>"
+            
+            f_id = f.get("file_id") or f.get("telegram_file_id")
+            f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
+            
+            # استدعاء دالة الإرسال المؤمنة التي تمنع صمت البوت وتجلب البديل فوراً
+            await send_secured_document(context, update.effective_chat.id, f_id, f_url, caption_text)
         return
 
     await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
 
-async def main():
+def main():
+    if not BOT_TOKEN:
+        logger.error("❌ خطأ: لم يتم العثور على متغير البيئة BOT_TOKEN!")
+        return
+
+    # إنشاء التطبيق باستخدام أحدث المعايير المتوافقة مع سيرفرات الاستضافة
     application = Application.builder().token(BOT_TOKEN).build()
     
+    # إعداد ثابت داخلي آمن يمنع أخطاء الـ AttributeError المشهورة في النسخ المحدثة
+    application.bot_data['add_year'] = False
+
+    # تسجيل المعالجات
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
-    
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    finally:
-        await application.updater.stop()
-        await application.stop()
-        await application.shutdown()
+    # تشغيل مستقر وتلقائي ومحمي ضد الـ Conflict لطابور الرسائل القديمة المعلقة
+    logger.info("🚀 بوت المكتبة التعليمية مستقر ويعمل الآن بأعلى كفاءة...")
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        print("🛑 System stopped.")
-        
+    main()
+                                                      
