@@ -11,6 +11,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
+# تأكد من وضع المفتاح الشغال الجديد هنا دائماً:
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -157,40 +158,64 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         subject_code = user_data["current_subject_code"]
-        loading_msg = await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
+        subject_name = user_data["current_subject_name"]
+        loading_msg = await update.message.reply_text("⏳ جاري فحص رفوف المستندات الذكية واختبار سياسات الوصول...")
         
+        files_list = []
         try:
-            # استعلام خفيف وآمن مع مهلة زمنية حماية
-            response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    lambda: supabase.table("materials")
-                    .select("*")
-                    .eq("subject", subject_code)
-                    .eq("category", matched_category_code)
-                    .execute()
-                ),
-                timeout=15.0
+            # 🚀 المحاولة 1: جلب البيانات بالرموز الإنجليزية المعتادة (english / book)
+            res1 = await asyncio.to_thread(
+                lambda: supabase.table("materials").select("*").eq("subject", subject_code).eq("category", matched_category_code).execute()
             )
-            files_list = response.data if response.data else []
-        except asyncio.TimeoutError:
-            await loading_msg.edit_text("⚠️ انتهت مهلة الطلب! يستغرق السيرفر وقتاً طويلاً للاستجابة.")
-            return
+            if res1.data:
+                files_list = res1.data
+            
+            # 🚀 المحاولة 2: إذا كانت فارغة، نجرب بالأسماء العربية الكاملة شاملة الإيموجي (مثلما تخزنها Lovable)
+            if not files_list:
+                res2 = await asyncio.to_thread(
+                    lambda: supabase.table("materials").select("*").eq("subject", subject_name).eq("category", text).execute()
+                )
+                if res2.data:
+                    files_list = res2.data
+            
+            # 🚀 المحاولة 3: إذا كانت لا تزال فارغة، نجرب بالأسماء العربية المجردة بدون أي إيموجي
+            if not files_list:
+                pure_sub = subject_name.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
+                pure_cat = text.replace("📝","").replace("📖","").replace("💡","").replace("📒","").replace("📂","").strip()
+                res3 = await asyncio.to_thread(
+                    lambda: supabase.table("materials").select("*").eq("subject", pure_sub).eq("category", pure_cat).execute()
+                )
+                if res3.data:
+                    files_list = res3.data
+
         except Exception as e:
-            # إرسال الخطأ كنص عادي تماماً لحماية البوت من التعطل بسبب رموز الماركداون
-            await loading_msg.edit_text(f"⚠️ فشل الاتصال بـ Supabase! تفاصيل الخطأ:\n\n{str(e)}")
+            await loading_msg.edit_text(f"⚠️ فشل الاتصال بقاعدة البيانات:\n\n{str(e)}")
             return
         
+        # 🔍 إذا كانت النتيجة فارغة تماماً بعد كل المحاولات، نقوم بعمل فحص كاشف لسياسة الـ RLS
         if not files_list:
-            await loading_msg.edit_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم لمادة {user_data.get('current_subject_name')}.")
+            try:
+                check_rls = await asyncio.to_thread(lambda: supabase.table("materials").select("*").limit(1).execute())
+                if not check_rls.data:
+                    await loading_msg.edit_text(
+                        "🔒 **كاشف الحماية (RLS Alert):**\n"
+                        "تم الاتصال بقاعدة البيانات بنجاح ولكن الجدول يعيد 0 صفوف حتى بدون أي فلاتر!\n\n"
+                        "💡 **السبب:** سياسة الـ RLS مفعّلة على جدول `materials` وتمنع البوت من القراءة.\n\n"
+                        "🛠️ **الحل:** اذهب إلى موقع Supabase الرئيسي -> ثم Authentication -> ثم Policies -> واضف سياسة جديدة لجدولك تمنح صلاحية القراءة (SELECT) للجميع (anon)."
+                    )
+                    return
+            except Exception:
+                pass
+
+            await loading_msg.edit_text(f"⚠️ لم يتم العثور على أي ملفات متطابقة في جدولك تحت هذا القسم لمادة {subject_name}.")
             return
 
-        # تم سحب الملفات بنجاح، نحذف رسالة التحميل
+        # إذا نجح السحب، نحذف رسالة التحميل ونرسل الملفات المجلوبة
         try:
             await loading_msg.delete()
         except Exception:
             pass
         
-        # إرسال البيانات المجلوبة بأمان تام وبدون parse_mode للنصوص المتغيرة
         for f in files_list:
             try:
                 file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف بدون اسم"
@@ -213,9 +238,8 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     except Exception:
                         await update.message.reply_text(f"{caption_text}\n\n🔗 رابط التحميل المباشر:\n{f_url}")
                 else:
-                    # طباعة الحقول المتاحة بشكل نصي نقي تماماً بدون علامات ماركداون مسببة للمشاكل
                     keys_str = ", ".join(list(f.keys()))
-                    await update.message.reply_text(f"⚠️ تم العثور على الصف ولكن أعمدة الرابط والـ ID فارغة.\nالأعمدة المتوفرة بجدولك هي: {keys_str}")
+                    await update.message.reply_text(f"⚠️ تم العثور على الصف ولكن أعمدة الملف فارغة.\nالحقول المتوفرة في جدولك هي: {keys_str}")
             except Exception as row_error:
                 print(f"Error sending row: {row_error}")
                 continue
@@ -246,4 +270,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-                    
+        
