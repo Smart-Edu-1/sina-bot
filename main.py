@@ -11,8 +11,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 YOUR_TELEGRAM_USERNAME = "Yousef55641" 
 
 SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-# تأكد من وضع المفتاح الشغال الجديد هنا دائماً:
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
+SUPABASE_KEY ="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 SUBJECTS = {
@@ -159,18 +158,18 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         subject_code = user_data["current_subject_code"]
         subject_name = user_data["current_subject_name"]
-        loading_msg = await update.message.reply_text("⏳ جاري فحص رفوف المستندات الذكية واختبار سياسات الوصول...")
+        loading_msg = await update.message.reply_text("⏳ جاري سحب ومطابقة فلاتر المستندات...")
         
         files_list = []
         try:
-            # 🚀 المحاولة 1: جلب البيانات بالرموز الإنجليزية المعتادة (english / book)
+            # محاولة 1
             res1 = await asyncio.to_thread(
                 lambda: supabase.table("materials").select("*").eq("subject", subject_code).eq("category", matched_category_code).execute()
             )
             if res1.data:
                 files_list = res1.data
             
-            # 🚀 المحاولة 2: إذا كانت فارغة، نجرب بالأسماء العربية الكاملة شاملة الإيموجي (مثلما تخزنها Lovable)
+            # محاولة 2
             if not files_list:
                 res2 = await asyncio.to_thread(
                     lambda: supabase.table("materials").select("*").eq("subject", subject_name).eq("category", text).execute()
@@ -178,7 +177,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if res2.data:
                     files_list = res2.data
             
-            # 🚀 المحاولة 3: إذا كانت لا تزال فارغة، نجرب بالأسماء العربية المجردة بدون أي إيموجي
+            # محاولة 3
             if not files_list:
                 pure_sub = subject_name.replace("📐","").replace("⚡","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
                 pure_cat = text.replace("📝","").replace("📖","").replace("💡","").replace("📒","").replace("📂","").strip()
@@ -192,25 +191,30 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await loading_msg.edit_text(f"⚠️ فشل الاتصال بقاعدة البيانات:\n\n{str(e)}")
             return
         
-        # 🔍 إذا كانت النتيجة فارغة تماماً بعد كل المحاولات، نقوم بعمل فحص كاشف لسياسة الـ RLS
+        # 🔍 رادار التشخيص الكاشف للبيانات المخزنة فعلياً:
         if not files_list:
             try:
-                check_rls = await asyncio.to_thread(lambda: supabase.table("materials").select("*").limit(1).execute())
-                if not check_rls.data:
-                    await loading_msg.edit_text(
-                        "🔒 **كاشف الحماية (RLS Alert):**\n"
-                        "تم الاتصال بقاعدة البيانات بنجاح ولكن الجدول يعيد 0 صفوف حتى بدون أي فلاتر!\n\n"
-                        "💡 **السبب:** سياسة الـ RLS مفعّلة على جدول `materials` وتمنع البوت من القراءة.\n\n"
-                        "🛠️ **الحل:** اذهب إلى موقع Supabase الرئيسي -> ثم Authentication -> ثم Policies -> واضف سياسة جديدة لجدولك تمنح صلاحية القراءة (SELECT) للجميع (anon)."
-                    )
+                debug_res = await asyncio.to_thread(
+                    lambda: supabase.table("materials").select("*").limit(3).execute()
+                )
+                if debug_res.data:
+                    debug_msg = "🔍 كاشف السيرفر الذكي لقراءة النص المخزن:\n\n"
+                    debug_msg += "البوت متصل ولكن الكلمات لم تطابق الفلتر. إليك القيم الحقيقية داخل جدولك حالياً لتصحيحها:\n\n"
+                    for idx, row in enumerate(debug_res.data, 1):
+                        debug_msg += f"📋 ملف رقم {idx}:\n"
+                        debug_msg += f"🔹 الاسم: {row.get('file_name') or row.get('title') or row.get('name') or 'لا يوجد اسم'}\n"
+                        debug_msg += f"🔹 المادة (subject): {row.get('subject')}\n"
+                        debug_msg += f"🔹 التصنيف (category): {row.get('category')}\n"
+                        debug_msg += "--------------------\n"
+                    debug_msg += "\n💡 انظر للقيم المكتوبة أمام (subject) و (category) أعلاه وصورها لي لأعدل لك خريطة الكلمات فوراً!"
+                    await loading_msg.edit_text(debug_msg)
                     return
             except Exception:
                 pass
 
-            await loading_msg.edit_text(f"⚠️ لم يتم العثور على أي ملفات متطابقة في جدولك تحت هذا القسم لمادة {subject_name}.")
+            await loading_msg.edit_text(f"⚠️ لم يتم العثور على أي ملفات متطابقة، ويبدو الجدول فارغاً تماماً في قاعدة البيانات لمادة {subject_name}.")
             return
 
-        # إذا نجح السحب، نحذف رسالة التحميل ونرسل الملفات المجلوبة
         try:
             await loading_msg.delete()
         except Exception:
