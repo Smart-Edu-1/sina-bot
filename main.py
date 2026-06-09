@@ -104,9 +104,13 @@ def get_categories_keyboard(subject_name):
     keyboard = [
         ["📝 الملخصات الذهنية", "📖 الكتاب المدرسي"],
         ["💡 ملاحظات تذكيرية", "📒 النوط الشاملة"],
-        ["📂 أسئلة السنوات السابقة"],
-        ["🔙 العودة لاختيار المادة"]
+        ["📂 أسئلة السنوات السابقة"]
     ]
+    # إضافة أزرار التربية الإسلامية الخاصة
+    if "التربية الإسلامية" in subject_name or "🕋" in subject_name:
+        keyboard.insert(2, ["🔊 الأحاديث الشريفة", "🔊 الآيات القرآنية"])
+    
+    keyboard.append(["🔙 العودة لاختيار المادة"])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # --- المنطق البرمجي ---
@@ -147,7 +151,9 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📖 الكتاب المدرسي": "textbook",
             "💡 ملاحظات تذكيرية": "notes",
             "📒 النوط الشاملة": "booklets",
-            "📂 أسئلة السنوات السابقة": "exams"
+            "📂 أسئلة السنوات السابقة": "exams",
+            "🔊 الأحاديث الشريفة": "hadith",
+            "🔊 الآيات القرآنية": "verses"
         }
         
         if text in category_mapping:
@@ -156,7 +162,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             files = response.data
             
             if not files:
-                await update.message.reply_text("⚠️ لا توجد ملفات في هذا القسم حالياً.")
+                await update.message.reply_text(f"⚠️ لا توجد ملفات في قسم '{text}' حالياً.")
                 return
             
             for file in files:
@@ -174,9 +180,9 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
-    logger.info("🚀 البوت يعمل.")
+    logger.info("🚀 البوت يعمل بكامل ميزاته.")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
-        
+    
