@@ -177,7 +177,8 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها :", reply_markup=get_subjects_keyboard())
         return
 
-    elif "طلب إعلان" in text or "تواصل مع الإدارة" in text:
+        elif "نشر إعلان" in text or "طلب إعلان" in text or "تواصل مع الإدارة" in text:
+
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
