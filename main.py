@@ -134,7 +134,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif "البكلوريا العلمي" in text or "تغيير المادة" in text:
         user_data.pop("audio_files", None)
         user_data.pop("active_audio_category", None)
-        await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات الرسومية المحدثة الأنيقة:", reply_markup=get_subjects_keyboard())
+        await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها :", reply_markup=get_subjects_keyboard())
         return
 
     elif "طلب إعلان" in text or "تواصل مع الإدارة" in text:
