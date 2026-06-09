@@ -82,7 +82,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
     await update.effective_message.reply_text(
-        "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
+        "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمي.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
         reply_markup=get_main_keyboard()
     )
 
