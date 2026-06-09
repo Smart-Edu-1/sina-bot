@@ -74,18 +74,17 @@ def get_exams_keyboard():
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.document:
         f_id = update.message.document.file_id
-        await update.message.reply_text(f"📄 **تم التقاط معرف المستند بنجاح!**\n\n`{f_id}`", parse_mode="Markdown")
+        await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n{f_id}")
     elif update.message.audio:
         f_id = update.message.audio.file_id
-        await update.message.reply_text(f"🔊 **تم التقاط معرف الملف الصوتي بنجاح!**\n\n`{f_id}`", parse_mode="Markdown")
+        await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n{f_id}")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await register_student_to_supabase(update.effective_user)
     context.user_data.clear() 
     await update.effective_message.reply_text(
-        "👋 **أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.**\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
-        reply_markup=get_main_keyboard(),
-        parse_mode="Markdown"
+        "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمية.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
+        reply_markup=get_main_keyboard()
     )
 
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -98,7 +97,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif "البكلوريا العلمي" in text or "تصفح المواد" in text or "تغيير المادة" in text:
-        await update.message.reply_text("📚 **اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات الرسومية المحدثة الأنيقة:**", reply_markup=get_subjects_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها بالأيقونات الرسومية المحدثة الأنيقة:", reply_markup=get_subjects_keyboard())
         return
 
     elif "طلب إعلان" in text or "تواصل مع الإدارة" in text:
@@ -116,7 +115,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if matched_subject:
         user_data["current_subject_name"] = matched_subject
         user_data["current_subject_code"] = SUBJECTS[matched_subject]
-        await update.message.reply_text(f"✨ لقد فتحت الآن رفوف مادة:\n🎯 *{matched_subject}*\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار بالأسفل:", reply_markup=get_categories_keyboard(matched_subject), parse_mode="Markdown")
+        await update.message.reply_text(f"✨ لقد فتحت الآن رفوف مادة:\n🎯 {matched_subject}\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار بالأسفل:", reply_markup=get_categories_keyboard(matched_subject))
         return
 
     if "أسئلة السنوات السابقة" in text or "📂 أسئلة السنوات" in text:
@@ -131,7 +130,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
             return
         subject_name = user_data["current_subject_name"]
-        await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 *{subject_name}*", reply_markup=get_categories_keyboard(subject_name), parse_mode="Markdown")
+        await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 {subject_name}", reply_markup=get_categories_keyboard(subject_name))
         return
 
     # خريطة التصنيفات
@@ -162,7 +161,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         loading_msg = await update.message.reply_text("⏳ جاري سحب المستندات والملفات المحدثة من سيرفر الموقع...")
         
         try:
-            # 🚀 إضافة حماية الـ Timeout لعدم التعليق نهائياً (بحد أقصى 12 ثانية)
+            # استعلام خفيف وآمن مع مهلة زمنية حماية
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     lambda: supabase.table("materials")
@@ -171,29 +170,34 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     .eq("category", matched_category_code)
                     .execute()
                 ),
-                timeout=12.0
+                timeout=15.0
             )
             files_list = response.data if response.data else []
         except asyncio.TimeoutError:
-            await loading_msg.edit_text("⚠️ **انتهت مهلة الطلب!** يستغرق السيرفر وقتاً طويلاً للاستجابة. يرجى التأكد من صحة بيانات اتصال قاعدة البيانات في ملف الـ Env أو المحاولة لاحقاً.")
+            await loading_msg.edit_text("⚠️ انتهت مهلة الطلب! يستغرق السيرفر وقتاً طويلاً للاستجابة.")
             return
         except Exception as e:
-            await loading_msg.edit_text(f"⚠️ **فشل الاتصال بـ Supabase! تفاصيل الخطأ:**\n\n`{str(e)}`", parse_mode="Markdown")
+            # إرسال الخطأ كنص عادي تماماً لحماية البوت من التعطل بسبب رموز الماركداون
+            await loading_msg.edit_text(f"⚠️ فشل الاتصال بـ Supabase! تفاصيل الخطأ:\n\n{str(e)}")
             return
         
         if not files_list:
             await loading_msg.edit_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في هذا القسم لمادة {user_data.get('current_subject_name')}.")
             return
 
-        await loading_msg.delete() # حذف رسالة التحميل عند النجاح
+        # تم سحب الملفات بنجاح، نحذف رسالة التحميل
+        try:
+            await loading_msg.delete()
+        except Exception:
+            pass
         
-        # إرسال الملفات المجلوبة
+        # إرسال البيانات المجلوبة بأمان تام وبدون parse_mode للنصوص المتغيرة
         for f in files_list:
             try:
                 file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف بدون اسم"
                 caption_text = f"📄 {file_name}"
                 
-                f_id = f.get("file_id")
+                f_id = f.get("file_id") or f.get("telegram_file_id")
                 f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
                 
                 if f_id:
@@ -208,9 +212,11 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         else:
                             await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text)
                     except Exception:
-                        await update.message.reply_text(f"{caption_text}\n\n🔗 **رابط التحميل المباشر:**\n{f_url}")
+                        await update.message.reply_text(f"{caption_text}\n\n🔗 رابط التحميل المباشر:\n{f_url}")
                 else:
-                    await update.message.reply_text(f"⚠️ تم العثور على الملف ولكن أعمدة الرابط فارغة.\nالحقول المتوفرة: `{list(f.keys())}`")
+                    # طباعة الحقول المتاحة بشكل نصي نقي تماماً بدون علامات ماركداون مسببة للمشاكل
+                    keys_str = ", ".join(list(f.keys()))
+                    await update.message.reply_text(f"⚠️ تم العثور على الصف ولكن أعمدة الرابط والـ ID فارغة.\nالأعمدة المتوفرة بجدولك هي: {keys_str}")
             except Exception as row_error:
                 print(f"Error sending row: {row_error}")
                 continue
@@ -241,4 +247,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         print("🛑 System stopped.")
-    
+                    
