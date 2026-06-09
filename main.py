@@ -178,7 +178,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif "نشر إعلان" in text or "طلب إعلان" in text or "تواصل مع الإدارة" in text:
-
         await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
         return
 
@@ -353,8 +352,8 @@ def main():
 
     application = Application.builder().token(BOT_TOKEN).build()
     
-    # تفعيل نظام الإعلانات التلقائي (يعمل كل ساعة)
-    application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
+    # تفعيل نظام الإعلانات التلقائي (يعمل كل دقيقتين)
+    application.job_queue.run_repeating(broadcast_announcement, interval=120, first=10)
 
     application.bot_data['add_year'] = False
 
@@ -368,4 +367,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
