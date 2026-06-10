@@ -220,7 +220,7 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     # في دالة main، ابحث عن سطر معالجة الملفات وقم بتعديله ليصبح هكذا:
-application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO | filters.PHOTO, catch_file_id))
+    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO | filters.PHOTO, catch_file_id))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
