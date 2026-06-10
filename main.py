@@ -5,365 +5,115 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, filters, ContextTypes
 )
-from supabase import create_client, Client
+from supabase import create_client
 
-# --- إعداد السجلات لمراقبة سير العمل على Railway ومنع الكراش الصامت ---
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# --- إعدادات ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- المتغيرات البيئية وبيانات الربط ---
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-YOUR_TELEGRAM_USERNAME = "Yousef55641" 
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-SUPABASE_URL = "https://syrpxdwypyisvlmwmmbu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5cnB4ZHd5cHlpc3ZsbXdtbWJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MjE2MDEsImV4cCI6MjA5NjQ5NzYwMX0.kG2PzNGb3ta9vu58gZrkCYZJ0YTk3VhsNTa-6fiUZ3M"
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-SUBJECTS = {
-    "📐 الرياضيات": "math",
-    "🧲 الفيزياء": "phys",
-    "🧪 الكيمياء": "chem",
-    "🧬 العلوم": "science",
-    "🕋 التربية الإسلامية": "islamic",
-    "📚 اللغة العربية": "arabic",
-    "🇬🇧 اللغة الإنجليزية": "english",
-    "🇫🇷 اللغة الفرنسية": "french",
-}
-
-# --- ميزة الإعلانات التلقائية (من قاعدة البيانات) ---
+# --- 1. ميزة الإعلانات (كما كانت في كودك السابق) ---
 async def broadcast_announcement(context: ContextTypes.DEFAULT_TYPE):
     try:
-        # جلب الإعلانات التي لم تُرسل بعد
         response = supabase.table("announcements").select("*").eq("is_sent", False).execute()
-        if not response.data:
-            return
-
-        # جلب جميع الطلاب
+        if not response.data: return
         students = supabase.table("students").select("telegram_id").execute()
-        
         for ann in response.data:
             msg = ann['message']
             for student in students.data:
                 try:
-                    await context.bot.send_message(chat_id=student['telegram_id'], text=f"📢 <b>إعلان من المكتبة:</b>\n\n{msg}", parse_mode="HTML")
-                    await asyncio.sleep(0.05) # لمنع حظر البوت
-                except:
-                    continue
-            
-            # تحديث الحالة إلى "تم الإرسال"
+                    await context.bot.send_message(chat_id=student['telegram_id'], text=f"📢 <b>إعلان:</b>\n\n{msg}", parse_mode="HTML")
+                    await asyncio.sleep(0.05)
+                except: continue
             supabase.table("announcements").update({"is_sent": True}).eq("id", ann['id']).execute()
-            logger.info(f"تم بث الإعلان رقم {ann['id']} بنجاح.")
-    except Exception as e:
-        logger.error(f"خطأ في نظام الإعلانات: {e}")
+    except Exception as e: logger.error(f"Error broadcasting: {e}")
 
-async def register_student_to_supabase(user):
-    try:
-        await asyncio.to_thread(
-            lambda: supabase.table("students").upsert({
-                "telegram_id": user.id, 
-                "username": user.username, 
-                "first_name": user.first_name
-            }, on_conflict="telegram_id").execute()
-        )
-    except Exception as e:
-        logger.error(f"Error registering student: {e}")
-
-def get_main_keyboard():
-    return ReplyKeyboardMarkup([
-        [KeyboardButton("البكلوريا العلمي 🎓")],
-        [KeyboardButton("📢 نشر إعلان "), KeyboardButton("💬 تواصل مع الإدارة")]
-    ], resize_keyboard=True, input_field_placeholder="اختر من القائمة الرئيسية...")
-
-def get_subjects_keyboard():
-    return ReplyKeyboardMarkup([
-        ["🧲 الفيزياء", "📐 الرياضيات"],
-        ["🧬 العلوم", "🧪 الكيمياء"],
-        ["📚 اللغة العربية", "🕋 التربية الإسلامية"],
-        ["🇫🇷 اللغة الفرنسية", "🇬🇧 اللغة الإنجليزية"],
-        ["📅 برنامج الامتحان"], 
-        ["🔙 العودة للقائمة الرئيسية"]
-    ], resize_keyboard=True, input_field_placeholder="اختر المادة لتصفح رصيد ملفاتها...")
-
-def get_categories_keyboard(subject_name):
-    keyboard = [
-        ["📝 الملخصات الذهنية", "📖 الكتاب المدرسي"],
-        ["💡 ملاحظات تذكيرية", "📒 النوط الشاملة"],
-        ["📂 أسئلة السنوات السابقة"]
-    ]
-    if "الإسلامية" in subject_name or "🕋" in subject_name:
-        keyboard.insert(2, ["🔊 الأحاديث الشريفة", "🔊 الآيات القرآنية"])
-    keyboard.append(["🔙 تغيير المادة المحددة"])
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="اختر القسم المطلوب...")
-
-def get_exams_keyboard():
-    return ReplyKeyboardMarkup([
-        ["📅 حسب السنة", "📝 كاملة"],
-        ["🔍 حسب الأبحاث"],
-        ["🔙 العودة لأقسام المادة"]
-    ], resize_keyboard=True, input_field_placeholder="اختر طريقة فرز الأسئلة...")
-
+# --- 2. ميزة التقاط الملفات (كما كانت) ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.document:
-        f_id = update.message.document.file_id
-        await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
-    elif update.message.audio:
-        f_id = update.message.audio.file_id
-        await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
+    msg = update.message
+    f_id = msg.document.file_id if msg.document else msg.audio.file_id
+    await msg.reply_text(f"✅ تم التقاط المعرف:\n<code>{f_id}</code>", parse_mode="HTML")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await register_student_to_supabase(update.effective_user)
-    context.user_data.clear() 
-    await update.effective_message.reply_text(
-        "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمي.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم:",
-        reply_markup=get_main_keyboard()
-    )
+# --- 3. النظام الشجري الديناميكي (الجديد) ---
+async def get_menu_items(parent_id=None):
+    query = supabase.table("menu_items").select("*").order("order_index")
+    if parent_id:
+        query = query.eq("parent_id", parent_id)
+    else:
+        query = query.is_("parent_id", "null")
+    return query.execute().data
 
-async def send_secured_document(context, chat_id, f_id, f_url, caption_text):
-    try:
-        if f_id:
-            await context.bot.send_document(chat_id=chat_id, document=f_id, caption=caption_text, parse_mode="HTML")
-            return True
-    except Exception as e:
-        logger.warning(f"فشل الإرسال باستخدام file_id، جاري تجربة الرابط المباشر. السبب: {e}")
+async def show_menu(update, context, parent_id=None):
+    items = await get_menu_items(parent_id)
+    keyboard = []
+    row = []
+    for item in items:
+        row.append(KeyboardButton(item['label']))
+        if len(row) == 2:
+            keyboard.append(row); row = []
+    if row: keyboard.append(row)
     
-    try:
-        if f_url:
-            await context.bot.send_document(chat_id=chat_id, document=f_url, caption=caption_text, parse_mode="HTML")
-            return True
-    except Exception as e:
-        logger.error(f"فشل الإرسال عبر الرابط المباشر أيضاً: {e}")
-    
-    if f_url:
-        await context.bot.send_message(
-            chat_id=chat_id, 
-            text=f"📄 <b>{caption_text}</b>\n\n⚠️ نعتذر، حدث تضارب في سيرفر الملفات المباشر، يمكنك تحميل الملف بشكل آمن عبر الرابط التالي:\n🔗 {f_url}",
-            parse_mode="HTML"
-        )
-        return True
-    return False
+    # أزرار تحكم
+    footer = []
+    if parent_id: footer.append("🔙 العودة للخلف")
+    footer.append("🏠 الرئيسية")
+    keyboard.append(footer)
+
+    await update.message.reply_text("📂 اختر من القائمة:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+    text = update.message.text
     user_data = context.user_data
-
-    # ميزة برنامج الامتحان
-    if "📅 برنامج الامتحان" in text:
-        loading_msg = await update.message.reply_text("⏳ جاري جلب برنامج الامتحان...")
-        try:
-            res = await asyncio.to_thread(lambda: supabase.table("materials").select("*").eq("category", "exam_schedule").execute())
-            if res.data:
-                for f in res.data:
-                    f_id = f.get("file_id") or f.get("telegram_file_id")
-                    f_url = f.get("file_url") or f.get("url")
-                    await send_secured_document(context, update.effective_chat.id, f_id, f_url, f"📅 {f.get('name', 'برنامج الامتحان')}")
-                await loading_msg.delete()
-            else:
-                await loading_msg.edit_text("⚠️ لم يتم رفع برنامج الامتحان بعد.")
-        except Exception as e:
-            await loading_msg.edit_text("⚠️ حدث خطأ أثناء جلب الملف.")
-        return
-
-    if "العودة للقائمة الرئيسية" in text or text == "🏠 الرئيسية":
-        user_data.clear()
-        await update.message.reply_text("🔙 تم العودة للقائمة الرئيسية للخدمات:", reply_markup=get_main_keyboard())
-        return
-
-    elif "البكلوريا العلمي" in text or "تغيير المادة" in text:
-        user_data.pop("audio_files", None)
-        user_data.pop("active_audio_category", None)
-        await update.message.reply_text("📚 اختر المادة التي ترغب بتصفح ملفاتها :", reply_markup=get_subjects_keyboard())
-        return
-
-    elif "نشر إعلان" in text or "طلب إعلان" in text or "تواصل مع الإدارة" in text:
-        await update.message.reply_text(f"💬 يمكنك التواصل مباشرة مع إدارة المكتبة والموقع عبر الحساب الرسمي التالي:\n\n🔗 @{YOUR_TELEGRAM_USERNAME}")
-        return
-
-    if "audio_files" in user_data and "active_audio_category" in user_data:
-        audio_files = user_data["audio_files"]
-        matching_files = []
-        
-        for f in audio_files:
-            r_name = f.get("reciter_name") or f.get("reciter") or f.get("description") or "قارئ عام"
-            if text == f"🎙️ {r_name}":
-                matching_files.append(f)
-        
-        if matching_files:
-            loading_msg = await update.message.reply_text(f"⏳ جاري إرسال الملفات الخاصة بـ ({text})...")
-            for f in matching_files:
-                try:
-                    file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف"
-                    caption_text = f"📎 {file_name}"
-                    f_id = f.get("file_id") or f.get("telegram_file_id")
-                    f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
-                    
-                    if f_id:
-                        if f.get("category") in ["hadith_audio", "quran_audio"]:
-                            await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_id, caption=caption_text)
-                        else:
-                            await send_secured_document(context, update.effective_chat.id, f_id, f_url, caption_text)
-                    elif f_url:
-                        if f.get("category") in ["hadith_audio", "quran_audio"]:
-                            await context.bot.send_audio(chat_id=update.effective_chat.id, audio=f_url, caption=caption_text)
-                        else:
-                            await send_secured_document(context, update.effective_chat.id, None, f_url, caption_text)
-                except Exception as e:
-                    logger.error(f"خطأ أثناء معالجة إرسال الملف الصوتي: {e}")
-                    continue
-            try:
-                await loading_msg.delete()
-            except Exception:
-                pass
-            return
-
-    matched_subject = None
-    for k in SUBJECTS.keys():
-        pure_subject_name = k.replace("📐","").replace("⚡","").replace("🧲","").replace("🧪","").replace("🧬","").replace("🕋","").replace("📚","").replace("🇬🇧","").replace("🇫🇷","").strip()
-        if pure_subject_name in text:
-            matched_subject = k
-            break
-
-    if matched_subject:
-        user_data.pop("audio_files", None)
-        user_data.pop("active_audio_category", None)
-        
-        user_data["current_subject_name"] = matched_subject
-        user_data["current_subject_code"] = SUBJECTS[matched_subject]
-        await update.message.reply_text(f"✨ لقد فتحت الآن رفوف مادة:\n🎯 {matched_subject}\n\nيرجى تحديد التصنيف المراد عرضه من الأزرار بالأسفل:", reply_markup=get_categories_keyboard(matched_subject))
-        return
-
-    if "أسئلة السنوات السابقة" in text or "📂 أسئلة السنوات" in text:
-        if "current_subject_code" not in user_data:
-            await update.message.reply_text("⚠️ يرجى اختيار المادة أولاً.", reply_markup=get_subjects_keyboard())
-            return
-        await update.message.reply_text("📅 اختر طريقة عرض الفرز لأسئلة السنوات السابقة:", reply_markup=get_exams_keyboard())
-        return
-
-    if "العودة لأقسام المادة" in text:
-        if "current_subject_name" not in user_data:
-            await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
-            return
-        user_data.pop("audio_files", None)
-        user_data.pop("active_audio_category", None)
-        subject_name = user_data["current_subject_name"]
-        await update.message.reply_text(f"📂 تم العودة لقائمة أقسام مادة:\n🎯 {subject_name}", reply_markup=get_categories_keyboard(subject_name))
-        return
-
-    cat_map = {
-        "حسب السنة": "exams_year",
-        "كاملة": "exams_full",
-        "حسب الأبحاث": "exams_topic",
-        "الملخصات الذهنية": "summaries",
-        "الكتاب المدرسي": "textbook",  
-        "النوط الشاملة": "booklets",
-        "ملاحظات تذكيرية": "notes",
-        "الأحاديث الشريفة": "hadith_audio",
-        "الآيات القرآنية": "quran_audio"
-    }
     
-    matched_category_code = None
-    for k, v in cat_map.items():
-        if k in text:
-            matched_category_code = v
-            break
-
-    if matched_category_code:
-        if "current_subject_code" not in user_data:
-            await update.message.reply_text("⚠️ انتهت الجلسة، يرجى إعادة اختيار المادة:", reply_markup=get_subjects_keyboard())
-            return
+    # منطق التنقل
+    if text == "🏠 الرئيسية":
+        user_data["current_node"] = None
+        await show_menu(update, context, None)
+        return
         
-        user_data.pop("audio_files", None)
-        user_data.pop("active_audio_category", None)
-
-        subject_code = user_data["current_subject_code"]
-        subject_name = user_data["current_subject_name"]
-        loading_msg = await update.message.reply_text("⏳ جاري فحص وتصفح الرفوف الدراسية...")
-        
-        files_list = []
-        try:
-            res1 = await asyncio.to_thread(
-                lambda: supabase.table("materials").select("*").eq("subject", subject_code).eq("category", matched_category_code).execute()
-            )
-            if res1.data:
-                files_list = res1.data
-            
-            if not files_list:
-                res2 = await asyncio.to_thread(
-                    lambda: supabase.table("materials").select("*").eq("subject", subject_name).eq("category", text).execute()
-                )
-                if res2.data:
-                    files_list = res2.data
-
-        except Exception as e:
-            logger.error(f"خطأ أثناء جلب البيانات من سوبابيز: {e}")
-            await loading_msg.edit_text("⚠️ عذراً، واجهنا مشكلة مؤقتة في جلب البيانات، يرجى المحاولة لاحقاً.")
-            return
-        
-        if not files_list:
-            await loading_msg.edit_text(f"⚠️ لا توجد ملفات مرفوعة حالياً في قسم ({text}) لمادة {subject_name}.")
-            return
-
-        if matched_category_code in ["hadith_audio", "quran_audio"]:
-            unique_reciters = set()
-            for f in files_list:
-                r_name = f.get("reciter_name") or f.get("reciter") or f.get("description") or "قارئ عام"
-                unique_reciters.add(r_name)
-            
-            user_data["audio_files"] = files_list
-            user_data["active_audio_category"] = matched_category_code
-            
-            reciter_buttons = []
-            reciters_list = sorted(list(unique_reciters))
-            for i in range(0, len(reciters_list), 2):
-                row = [f"🎙️ {name}" for name in reciters_list[i:i+2]]
-                reciter_buttons.append(row)
-            reciter_buttons.append(["🔙 العودة لأقسام المادة"])
-            
-            await loading_msg.delete()
-            await update.message.reply_text(
-                "🎙️ اختر القارئ المطلوب للاستماع إلى التسجيلات المقررة:",
-                reply_markup=ReplyKeyboardMarkup(reciter_buttons, resize_keyboard=True)
-            )
-            return
-
-        try:
-            await loading_msg.delete()
-        except Exception:
-            pass
-        
-        for f in files_list:
-            file_name = f.get("file_name") or f.get("title") or f.get("name") or "ملف تعليمي"
-            caption_text = f"<b>📄 {file_name}</b>"
-            
-            f_id = f.get("file_id") or f.get("telegram_file_id")
-            f_url = f.get("file_url") or f.get("url") or f.get("file_path") or f.get("pdf_url")
-            
-            await send_secured_document(context, update.effective_chat.id, f_id, f_url, caption_text)
+    if text == "🔙 العودة للخلف":
+        current = user_data.get("current_node")
+        parent = supabase.table("menu_items").select("parent_id").eq("id", current).single().execute().data
+        parent_id = parent.get("parent_id") if parent else None
+        user_data["current_node"] = parent_id
+        await show_menu(update, context, parent_id)
         return
 
-    await update.message.reply_text("ℹ️ من فضلك، استخدم أزرار القائمة السفلية الظاهرة أمامك للتنقل.", reply_markup=get_main_keyboard())
+    # التحقق من الضغط على زر
+    current_node = user_data.get("current_node")
+    items = await get_menu_items(current_node)
+    selected = next((i for i in items if i['label'] == text), None)
+
+    if selected:
+        if selected['type'] == 'folder':
+            user_data["current_node"] = selected['id']
+            await show_menu(update, context, selected['id'])
+        else:
+            # إرسال الملف
+            caption = f"📎 {selected['label']}"
+            if selected['telegram_file_id']:
+                await update.message.reply_document(document=selected['telegram_file_id'], caption=caption)
+            elif selected['content_url']:
+                await update.message.reply_document(document=selected['content_url'], caption=caption)
+    else:
+        await update.message.reply_text("ℹ️ استخدم القائمة للتنقل.")
 
 def main():
-    if not BOT_TOKEN:
-        logger.error("❌ خطأ: لم يتم العثور على متغير البيئة BOT_TOKEN!")
-        return
-
-    application = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(os.environ.get("BOT_TOKEN")).build()
     
-    # تفعيل نظام الإعلانات التلقائي (يعمل كل دقيقتين)
-    application.job_queue.run_repeating(broadcast_announcement, interval=120, first=10)
-
-    application.bot_data['add_year'] = False
-
-    # تسجيل المعالجات
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
-
-    logger.info("🚀 بوت المكتبة التعليمية مستقر ويعمل الآن بأعلى كفاءة...")
-    application.run_polling(drop_pending_updates=True)
+    # المهام المجدولة
+    app.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
+    
+    # المعالجات
+    app.add_handler(CommandHandler("start", lambda u, c: show_menu(u, c, None)))
+    app.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
+    
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
+    
