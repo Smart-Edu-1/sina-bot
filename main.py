@@ -57,18 +57,25 @@ async def register_student_to_supabase(user):
         logger.error(f"Error registering student: {e}")
 
 # --- 3. ميزة التقاط معرف الملف للمدير (صافي تماماً بدون أي نص إضافي) ---
+# --- 3. ميزة التقاط معرف الملف/الصورة للمدير (محدثة لدعم الصور) ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     f_id = None
     
+    # التقاط معرف المستند
     if msg.document:
         f_id = msg.document.file_id
+    # التقاط معرف الملف الصوتي
     elif msg.audio:
         f_id = msg.audio.file_id
+    # التقاط معرف الصورة (نأخذ آخر عنصر في القائمة لأنه صاحب الجودة الأعلى)
+    elif msg.photo:
+        f_id = msg.photo[-1].file_id
         
     if f_id:
-        # إرسال المعرف فقط لسهولة النسخ بضغطة واحدة
+        # إرسال المعرف صافياً تماماً
         await msg.reply_text(f"<code>{f_id}</code>", parse_mode="HTML")
+
 
 # --- 4. جلب القائمة من قاعدة البيانات ---
 async def get_menu_items(parent_id=None):
@@ -212,7 +219,9 @@ def main():
     application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
+    # في دالة main، ابحث عن سطر معالجة الملفات وقم بتعديله ليصبح هكذا:
+application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO | filters.PHOTO, catch_file_id))
+
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
     logger.info("🚀 البوت الشجري المعدل مستقر ويعمل الآن بدون أي مشاكل تعليق...")
