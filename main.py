@@ -18,6 +18,8 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+YOUR_TELEGRAM_USERNAME = "Yousef55641"
+
 # --- 1. ميزة الإعلانات التلقائية (من قاعدة البيانات) ---
 async def broadcast_announcement(context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -54,14 +56,19 @@ async def register_student_to_supabase(user):
     except Exception as e:
         logger.error(f"Error registering student: {e}")
 
-# --- 3. ميزة التقاط معرف الملف للمدير ---
+# --- 3. ميزة التقاط معرف الملف للمدير (صافي تماماً بدون أي نص إضافي) ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.document:
-        f_id = update.message.document.file_id
-        await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
-    elif update.message.audio:
-        f_id = update.message.audio.file_id
-        await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
+    msg = update.message
+    f_id = None
+    
+    if msg.document:
+        f_id = msg.document.file_id
+    elif msg.audio:
+        f_id = msg.audio.file_id
+        
+    if f_id:
+        # إرسال المعرف فقط لسهولة النسخ بضغطة واحدة
+        await msg.reply_text(f"<code>{f_id}</code>", parse_mode="HTML")
 
 # --- 4. جلب القائمة من قاعدة البيانات ---
 async def get_menu_items(parent_id=None):
@@ -78,7 +85,7 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, parent_i
     items = await get_menu_items(parent_id)
     keyboard = []
     
-    # توزيع الأزرار بشكل ثنائي احترافي
+    # توزيع الأزرار بشكل ثنائي
     row = []
     for item in items:
         row.append(KeyboardButton(item['label']))
@@ -87,6 +94,10 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, parent_i
             row = []
     if row: 
         keyboard.append(row)
+    
+    # إضافة الأزرار الثابتة (نشر إعلان) فقط في القائمة الرئيسية (عندما يكون parent_id هو None)
+    if parent_id is None:
+        keyboard.append([KeyboardButton("📢 نشر إعلان")])
     
     # إضافة أزرار التحكم في أسفل القائمة
     footer = []
@@ -109,6 +120,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
+
+    # ميزة زر نشر إعلان الثابت
+    if text == "📢 نشر إعلان":
+        announcement_msg = (
+            "✨ <b>مرحباً بك عزيزي الطالب في قسم الدعم والإعلانات</b> ✨\n\n"
+            "لطلب الإعلانات، الاستفسارات، أو التواصل المباشر مع إدارة المكتبة والموقع، "
+            "يسعدنا تواصلك معنا مباشرة عبر الحساب الرسمي التالي:\n\n"
+            "🔗 <b>حساب التواصل الرسمي:</b> @Yousef55641\n\n"
+            "📥 <i>اضغط على المعرف أعلاه لبدء المحادثة فوراً، وسنقوم بالرد عليك في أقرب وقت ممكن.</i>"
+        )
+        await update.message.reply_text(announcement_msg, parse_mode="HTML")
+        return
 
     # أزرار التنقل الثابتة
     if text == "🏠 القائمة الرئيسية":
@@ -135,21 +158,21 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if selected:
         if selected['type'] == 'folder':
-            # الانتقال لعمق شجري جديد (مجلد فرعي)
-            user_data["current_node"] = selected['id']
-            # فحص إذا كان المجلد فارغاً قبل فتحه
+            # فحص إذا كان المجلد فارغاً قبل تحويل جلسة المستخدم إليه (حل مشكلة التعليق)
             sub_items = await get_menu_items(selected['id'])
             if not sub_items:
                 await update.message.reply_text(f"⚠️ لا توجد محتويات أو ملفات مرفوعة حالياً في قسم ({text}).")
+                # نبقي المستخدم في نفس مكانه دون تغيير current_node
                 return
+            
+            # إذا لم يكن فارغاً، ننتقل بأمان
+            user_data["current_node"] = selected['id']
             await show_menu(update, context, selected['id'], text_message=f"✨ لقد فتحت الآن رفوف:\n🎯 {text}")
         
         elif selected['type'] == 'text_msg':
-            # في حال كان خيار نصي مخصص (مثل تواصل معنا أو إعلان ثابت)
             await update.message.reply_text(selected['content_url'], parse_mode="HTML")
 
         elif selected['type'] == 'file':
-            # بدء تأثير التحميل الاحترافي
             loading_msg = await update.message.reply_text(f"⏳ جاري جلب وإرسال ملف ({text})...")
             
             caption_text = f"<b>📄 {selected['label']}</b>"
@@ -171,7 +194,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception as e:
                     logger.error(f"فشل الإرسال عبر الرابط: {e}")
             
-            # مسح رسالة التحميل بعد انتهاء الإرسال بنجاح أو فشل
             await loading_msg.delete()
             
             if not success:
@@ -187,17 +209,15 @@ def main():
 
     application = Application.builder().token(bot_token).build()
     
-    # تشغيل نظام بث الإعلانات كل ساعة
     application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
 
-    # معالجات البوت
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
-    logger.info("🚀 البوت الشجري الاحترافي مستقر ويعمل الآن...")
+    logger.info("🚀 البوت الشجري المعدل مستقر ويعمل الآن بدون أي مشاكل تعليق...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
-                
+    
