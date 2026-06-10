@@ -56,26 +56,20 @@ async def register_student_to_supabase(user):
     except Exception as e:
         logger.error(f"Error registering student: {e}")
 
-# --- 3. ميزة التقاط معرف الملف للمدير (صافي تماماً بدون أي نص إضافي) ---
-# --- 3. ميزة التقاط معرف الملف/الصورة للمدير (محدثة لدعم الصور) ---
+# --- 3. ميزة التقاط معرف الملف أو الصورة للمدير (صافي تماماً لسهولة النسخ) ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     f_id = None
     
-    # التقاط معرف المستند
     if msg.document:
         f_id = msg.document.file_id
-    # التقاط معرف الملف الصوتي
     elif msg.audio:
         f_id = msg.audio.file_id
-    # التقاط معرف الصورة (نأخذ آخر عنصر في القائمة لأنه صاحب الجودة الأعلى)
     elif msg.photo:
-        f_id = msg.photo[-1].file_id
+        f_id = msg.photo[-1].file_id  # جلب أعلى جودة للصورة
         
     if f_id:
-        # إرسال المعرف صافياً تماماً
         await msg.reply_text(f"<code>{f_id}</code>", parse_mode="HTML")
-
 
 # --- 4. جلب القائمة من قاعدة البيانات ---
 async def get_menu_items(parent_id=None):
@@ -92,7 +86,6 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, parent_i
     items = await get_menu_items(parent_id)
     keyboard = []
     
-    # توزيع الأزرار بشكل ثنائي
     row = []
     for item in items:
         row.append(KeyboardButton(item['label']))
@@ -102,11 +95,9 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, parent_i
     if row: 
         keyboard.append(row)
     
-    # إضافة الأزرار الثابتة (نشر إعلان) فقط في القائمة الرئيسية (عندما يكون parent_id هو None)
     if parent_id is None:
         keyboard.append([KeyboardButton("📢 نشر إعلان")])
     
-    # إضافة أزرار التحكم في أسفل القائمة
     footer = []
     if parent_id:
         footer.append(KeyboardButton("🔙 العودة للخلف"))
@@ -128,7 +119,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # ميزة زر نشر إعلان الثابت
     if text == "📢 نشر إعلان":
         announcement_msg = (
             "✨ <b>مرحباً بك عزيزي الطالب في قسم الدعم والإعلانات</b> ✨\n\n"
@@ -140,7 +130,6 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(announcement_msg, parse_mode="HTML")
         return
 
-    # أزرار التنقل الثابتة
     if text == "🏠 القائمة الرئيسية":
         user_data.clear()
         await show_menu(update, context, parent_id=None, text_message="🔙 تم العودة للقائمة الرئيسية للخدمات:")
@@ -158,21 +147,17 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_menu(update, context, parent_id=None)
         return
 
-    # فحص الأزرار الديناميكية المتاحة في المجلد الحالي
     current_node = user_data.get("current_node")
     items = await get_menu_items(current_node)
     selected = next((i for i in items if i['label'] == text), None)
 
     if selected:
         if selected['type'] == 'folder':
-            # فحص إذا كان المجلد فارغاً قبل تحويل جلسة المستخدم إليه (حل مشكلة التعليق)
             sub_items = await get_menu_items(selected['id'])
             if not sub_items:
                 await update.message.reply_text(f"⚠️ لا توجد محتويات أو ملفات مرفوعة حالياً في قسم ({text}).")
-                # نبقي المستخدم في نفس مكانه دون تغيير current_node
                 return
             
-            # إذا لم يكن فارغاً، ننتقل بأمان
             user_data["current_node"] = selected['id']
             await show_menu(update, context, selected['id'], text_message=f"✨ لقد فتحت الآن رفوف:\n🎯 {text}")
         
@@ -180,23 +165,39 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(selected['content_url'], parse_mode="HTML")
 
         elif selected['type'] == 'file':
-            loading_msg = await update.message.reply_text(f"⏳ جاري جلب وإرسال ملف ({text})...")
+            loading_msg = await update.message.reply_text(f"⏳ جاري جلب وإرسال ({text})...")
             
             caption_text = f"<b>📄 {selected['label']}</b>"
             f_id = selected.get("telegram_file_id")
             f_url = selected.get("content_url")
             
             success = False
-            try:
-                if f_id:
-                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text, parse_mode="HTML")
+            
+            # محاولة الإرسال بناءً على نوع المعرف (صورة أو ملف)
+            if f_id:
+                try:
+                    # إذا كان المعرف يبدأ بـ AgAC (وهو الكود الشهير لمعرفات الصور في تيليجرام)
+                    if f_id.startswith("AgAC"):
+                        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=f_id, caption=caption_text, parse_mode="HTML")
+                    else:
+                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text, parse_mode="HTML")
                     success = True
-            except Exception as e:
-                logger.warning(f"فشل الإرسال عبر file_id: {e}")
+                except Exception as e:
+                    logger.warning(f"فشل الإرسال كـ فوتو/مستند بالمعرف، سنجرب العكس: {e}")
+                    # محاولة أخيرة بديلة في حال اختلف كود المعرف
+                    try:
+                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_id, caption=caption_text, parse_mode="HTML")
+                        success = True
+                    except:
+                        pass
             
             if not success and f_url:
                 try:
-                    await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text, parse_mode="HTML")
+                    # فحص الرابط المباشر إذا كان ينتهي بامتداد صور
+                    if f_url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=f_url, caption=caption_text, parse_mode="HTML")
+                    else:
+                        await context.bot.send_document(chat_id=update.effective_chat.id, document=f_url, caption=caption_text, parse_mode="HTML")
                     success = True
                 except Exception as e:
                     logger.error(f"فشل الإرسال عبر الرابط: {e}")
@@ -216,17 +217,16 @@ def main():
 
     application = Application.builder().token(bot_token).build()
     
-    application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
+    # لتعديل وقت فحص الإعلانات غير المرسلة: عدل 3600 (بالثواني) إلى الوقت المطلوب
+    application.job_queue.run_repeating(broadcast_announcement, interval=60, first=10)
 
     application.add_handler(CommandHandler("start", start))
-    # في دالة main، ابحث عن سطر معالجة الملفات وقم بتعديله ليصبح هكذا:
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO | filters.PHOTO, catch_file_id))
-
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
-    logger.info("🚀 البوت الشجري المعدل مستقر ويعمل الآن بدون أي مشاكل تعليق...")
+    logger.info("🚀 البوت الشجري جاهز تماماً وتم حل مشكلة مسافات المحاذاة والتعرف على الصور...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
-    
+        
