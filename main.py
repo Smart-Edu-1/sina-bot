@@ -22,7 +22,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # مسار ملف الغلاف الثابت الذي صممته على كانفا وسيكون مخزناً على السيرفر بنفس المجلد
 COVER_PATH = "cover.pdf"
 # ضع الآيدي (ID) الخاص بك كأدمن هنا لحماية الميزة (تأكد من كتابة الآيدي الخاص بك)
-ADMIN_ID = 123456789  
+ADMIN_ID = 6799806928  
 
 # --- دالة مساعدة لمعالجة دمج ملفات الـ PDF ---
 def process_pdf_geometry(mode, original_path, output_path):
