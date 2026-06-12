@@ -21,7 +21,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # مسار ملف الغلاف الثابت الذي صممته على كانفا وسيكون مخزناً على السيرفر بنفس المجلد
 COVER_PATH = "cover.pdf"
-# معرف التليجرام الخاص بك كأدمن (تم تحديثه بناءً على حسابك ليتعرف عليك البوت فوراً)
+# معرف التليجرام الخاص بك كأدمن
 ADMIN_ID = 6799806928  
 
 # --- دالة مساعدة لمعالجة دمج ملفات الـ PDF ---
@@ -125,15 +125,11 @@ async def handle_cover_callbacks(update: Update, context: ContextTypes.DEFAULT_T
     
     if action == "cover_skip":
         user_data.clear()
-        # إرجاع الـ file_id الأصلي مباشرة دون أي تعديل أو تحميل للملف
         f_id = query.message.reply_to_message.document.file_id
         await query.edit_message_text(f"⏩ تم التخطي. معرف الملف الأصلي لنسخه:\n\n<code>{f_id}</code>", parse_mode="HTML")
         return
 
-    # تخزين نوع العملية المطلوبة (add أو replace)
     user_data["cover_action"] = "add" if action == "cover_add" else "replace"
-    
-    # الانتقال لخطوة طلب اسم الملف الجديد
     user_data["awaiting_filename"] = True
     await query.edit_message_text("📝 ممتاز! الآن قم بكتابة وإرسال **اسم الملف الجديد** (بدون لاحقات، مثال: `كتاب الهندسة`):")
 
@@ -147,7 +143,7 @@ async def get_menu_items(parent_id=None):
     res = query.execute()
     return res.data if res.data else []
 
-# --- 5. دالة بناء وعرض الكيبورد الديناميكي ---
+# --- 5. دالة بناء وعرض الكيبورد الديناميكي والمطور ---
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, parent_id=None, text_message="يرجى اختيار القسم المطلوب من الأزرار بالأسفل:"):
     items = await get_menu_items(parent_id)
     keyboard = []
@@ -161,11 +157,17 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, parent_i
     if row: 
         keyboard.append(row)
     
+    # خيارات أسفل القائمة حسب المجلد الحالي
     footer = []
     if parent_id:
         footer.append(KeyboardButton("🔙 العودة للخلف"))
-    footer.append(KeyboardButton("🏠 القائمة الرئيسية"))
-    keyboard.append(footer)
+        footer.append(KeyboardButton("🏠 القائمة الرئيسية"))
+        keyboard.append(footer)
+    else:
+        # إضافة زر "نشر إعلان 📢" الثابت لجميع الطلاب في القائمة الرئيسية بجانب الخيارات الأخرى
+        footer.append(KeyboardButton("📢 نشر إعلان"))
+        footer.append(KeyboardButton("🏠 القائمة الرئيسية"))
+        keyboard.append(footer)
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(text_message, reply_markup=reply_markup)
@@ -177,7 +179,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمي.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم للشجرة الدراسية:"
     await show_menu(update, context, parent_id=None, text_message=welcome_text)
 
-# --- 7. المعالج الرئيسي لمنطق البوت الشجري واستقبال اسم الملف للمدير ---
+# --- 7. المعالج الرئيسي لمنطق البوت الشجري واستقبل اسم الملف للمدير ---
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
@@ -199,14 +201,11 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prog_msg = await update.message.reply_text("⚙️ جاري تحميل الملف ومعالجته مع غلاف كانفا... قد يستغرق ذلك لحظات حسب حجم الملف.")
         
         try:
-            # تحميل الملف الفعلي للسيرفر في هذه الخطوة المتأخرة لحماية الاتصال من الـ Timeout
             file = await context.bot.get_file(pending_file_id)
             await file.download_to_drive(input_path)
             
-            # دمج أو استبدال الصفحات مع الغلاف الثابت
             await asyncio.to_thread(process_pdf_geometry, mode, input_path, output_path)
             
-            # إرسال الملف الجديد للأدمن بالاسم الجديد المحدد للالتقاط
             with open(output_path, "rb") as f:
                 sent_doc = await context.bot.send_document(
                     chat_id=update.effective_chat.id,
@@ -214,14 +213,12 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     caption=f"✅ تم تجهيز غلاف المكتبة بنجاح باسم:\n`{custom_name}`"
                 )
             
-            # إرسال معرف الملف المعدل والجديد كلياً لنسخه واستخدامه في السوبابيس بلمسة واحدة
             await update.message.reply_text(f"<code>{sent_doc.document.file_id}</code>", parse_mode="HTML")
             
         except Exception as e:
             logger.error(f"خطأ أثناء معالجة ملف PDF للمدير: {e}")
             await update.message.reply_text("❌ حدث خطأ أثناء معالجة الملف، تأكد من أن الملف سليم ولا يتجاوز حجمه الحدود المسموحة للبوتات.")
         finally:
-            # تنظيف السيرفر وحذف الملفات المؤقتة فوراً لتوفير مساحة الـ VPS / Railway
             try:
                 await prog_msg.delete()
             except:
@@ -231,7 +228,19 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_data.clear()
         return
 
-    # أزرار التنقل الثابتة للطلاب والمشرفين
+    # معالجة الضغط على زر "نشر إعلان 📢" الثابت
+    if text == "📢 نشر إعلان":
+        ad_response = (
+            "🎯 <b>أهلاً بك عزيزي الطالب في قسم تواصل وإعلانات المكتبة التعليمية!</b>\n\n"
+            "✨ لمتابعة أحدث المستجدات، الاستفسار عن النوط والمذكرات الحصرية، أو لطلب الدعم السريع لخدمات الطلاب:\n\n"
+            "💬 <b>يرجى التواصل معنا مباشرة من خلال معرّف الإدارة الرسمي:</b>\n"
+            "👉 @Yousef55641\n\n"
+            "🤝 <i>يسعدنا تواصلكم ونتمنى لكم رحلة دراسية مكللة بالتفوق والنجاح!</i>"
+        )
+        await update.message.reply_text(ad_response, parse_mode="HTML")
+        return
+
+    # أزرار التنقل الثابتة
     if text == "🏠 القائمة الرئيسية":
         user_data.clear()
         await show_menu(update, context, parent_id=None, text_message="🔙 تم العودة للقائمة الرئيسية للخدمات:")
@@ -318,4 +327,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-            
+        
