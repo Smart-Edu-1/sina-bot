@@ -3,7 +3,7 @@ import asyncio
 import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler, filters, ContextTypes
+    Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 )
 from supabase import create_client
 from pypdf import PdfReader, PdfWriter
@@ -21,7 +21,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # مسار ملف الغلاف الثابت الذي صممته على كانفا وسيكون مخزناً على السيرفر بنفس المجلد
 COVER_PATH = "cover.pdf"
-# ضع الآيدي (ID) الخاص بك كأدمن هنا لحماية الميزة (يرجى استبداله بالآيدي الخاص بك)
+# ضع الآيدي (ID) الخاص بك كأدمن هنا لحماية الميزة (تأكد من كتابة الآيدي الخاص بك)
 ADMIN_ID = 123456789  
 
 # --- دالة مساعدة لمعالجة دمج ملفات الـ PDF ---
@@ -77,36 +77,53 @@ async def register_student_to_supabase(user):
 
 # --- 3. ميزة التقاط وتعديل ملفات المدير مع الغلاف الذكي ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ميزة الغلاف تعمل فقط للمدير وحصرياً لملفات الـ PDF
-    if update.message.from_user.id == ADMIN_ID and update.message.document and update.message.document.mime_type == "application/pdf":
-        loading_msg = await update.message.reply_text("⏳ جاري تحميل مستند الـ PDF لتجهيز خيارات الغلاف...")
-        
-        # تحميل الملف مؤقتاً إلى السيرفر
-        file = await context.bot.get_file(update.message.document.file_id)
-        input_filename = f"temp_{update.message.chat_id}.pdf"
-        await file.download_to_drive(input_filename)
-        await loading_msg.delete()
+    user_id = update.message.from_user.id
+    
+    # التحقق أولاً إذا كان المرسل هو الأدمن
+    if user_id == ADMIN_ID:
+        # حالة 1: الملف المرفوع مستند PDF (تطبيق منطق الغلاف الذكي)
+        if update.message.document and update.message.document.mime_type == "application/pdf":
+            loading_msg = await update.message.reply_text("⏳ جاري تحميل مستند الـ PDF لتجهيز خيارات الغلاف...")
+            
+            # تحميل الملف مؤقتاً إلى السيرفر
+            file = await context.bot.get_file(update.message.document.file_id)
+            input_filename = f"temp_{update.message.chat_id}.pdf"
+            await file.download_to_drive(input_filename)
+            await loading_msg.delete()
 
-        # حفظ المسار المؤقت في ذاكرة البوت المؤقتة الخاصة بالآدمن
-        context.user_data["temp_pdf_path"] = input_filename
+            # حفظ المسار المؤقت في ذاكرة البوت
+            context.user_data["temp_pdf_path"] = input_filename
 
-        # إنشاء لوحة تحكم تفاعلية مدمجة (Inline Buttons)
-        keyboard = [
-            [InlineKeyboardButton("➕ إضافة الغلاف كصفحة أولى", callback_data="cover_add")],
-            [InlineKeyboardButton("🔄 استبدال الصفحة الأولى الحالية", callback_data="cover_replace")],
-            [InlineKeyboardButton("⏩ تخطي وإرسال المعرف الحالي فوراً", callback_data="cover_skip")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("🎯 تم التقاط الملف. اختر الإجراء المناسب لغلاف المكتبة التعليمية:", reply_markup=reply_markup)
-        return
+            # إنشاء لوحة تحكم تفاعلية مدمجة (Inline Buttons)
+            keyboard = [
+                [InlineKeyboardButton("➕ إضافة الغلاف كصفحة أولى", callback_data="cover_add")],
+                [InlineKeyboardButton("🔄 استبدال الصفحة الأولى الحالية", callback_data="cover_replace")],
+                [InlineKeyboardButton("⏩ تخطي وإرسال المعرف الحالي فوراً", callback_data="cover_skip")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text("🎯 تم التقاط ملف PDF. اختر الإجراء المناسب لغلاف المكتبة التعليمية:", reply_markup=reply_markup)
+            return
 
-    # منطق البوت القديم للملفات الصوتية أو بقية المستندات دون تعديل
-    if update.message.document:
-        f_id = update.message.document.file_id
-        await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
-    elif update.message.audio:
-        f_id = update.message.audio.file_id
-        await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
+        # حالة 2: المرفق عبارة عن صورة (Photo) - إرسال المعرف فوراً
+        elif update.message.photo:
+            # نأخذ أعلى جودة للصورة وهي دائماً آخر عنصر في القائمة
+            f_id = update.message.photo[-1].file_id
+            await update.message.reply_text(f"🖼️ تم التقاط معرف الصورة بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
+            return
+
+        # حالة 3: المرفق ملف صوتي (Audio) - إرسال المعرف فوراً
+        elif update.message.audio:
+            f_id = update.message.audio.file_id
+            await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
+            return
+
+        # حالة 4: أي مستند آخر ليس PDF (مثل الكليبات، الفيديوهات أو مستندات أخرى)
+        elif update.message.document:
+            f_id = update.message.document.file_id
+            await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
+            return
+            
+    # إذا لم يكن المرسل هو الأدمن، يتم تجاهل المرفقات لكي لا تسبب تشتت للبوت الشجري
 
 # معالج ضغطات الأزرار المدمجة للأدمن
 async def handle_cover_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -132,7 +149,7 @@ async def handle_cover_callbacks(update: Update, context: ContextTypes.DEFAULT_T
     
     # الانتقال لخطوة طلب اسم الملف الجديد
     user_data["awaiting_filename"] = True
-    await query.edit_message_text("📝 ممتاز! الآن قم بكتابة وإرسال **اسم الملف الجديد** (مع اللاحقة .pdf مثل: `الملخص_النهائي.pdf`):")
+    await query.edit_message_text("📝 ممتاز! الآن قم بكتابة وإرسال **اسم الملف الجديد** (بدون لاحقات، مثال: `كتاب الهندسة`):")
 
 # --- 4. جلب القائمة من قاعدة البيانات ---
 async def get_menu_items(parent_id=None):
@@ -174,7 +191,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمي.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم للشجرة الدراسية:"
     await show_menu(update, context, parent_id=None, text_message=welcome_text)
 
-# --- 7. المعالج الرئيسي لمنطق البوت الشجري واستقبال اسم الملف للمدير ---
+# --- 7. المعالج الرئيسي لمنطق البوت الشجري واستقبل اسم الملف للمدير ---
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
@@ -215,7 +232,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ حدث خطأ داخلي أثناء معالجة الملف وتوليده.")
         finally:
             # تنظيف السيرفر من الملفات المؤقتة فوراً
-            await prog_msg.delete()
+            if os.path.exists(prog_msg.message_id): await prog_msg.delete()
             if os.path.exists(input_path): os.remove(input_path)
             if os.path.exists(output_path): os.remove(output_path)
             user_data.clear()
@@ -295,11 +312,12 @@ def main():
     
     application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
 
-    # معالجات البوت
+    # معالجات البوت (تم تصحيح السطر المسبب للكراش بالكامل هنا)
     application.add_handler(CommandHandler("start", start))
-    # التقاط معالجات أزرار خيارات الغلاف
-    application.add_handler(update.ext.CallbackQueryHandler(handle_cover_callbacks, pattern="^cover_"))
-    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO, catch_file_id))
+    application.add_handler(CallbackQueryHandler(handle_cover_callbacks, pattern="^cover_"))
+    
+    # التقاط كافة أنواع الميديا والصور والملفات من الأدمن للفحص والفرز الذكي
+    application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO | filters.PHOTO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
     logger.info("🚀 البوت الشجري الاحترافي مستقر ويعمل الآن...")
