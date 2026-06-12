@@ -21,7 +21,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # مسار ملف الغلاف الثابت الذي صممته على كانفا وسيكون مخزناً على السيرفر بنفس المجلد
 COVER_PATH = "cover.pdf"
-# ضع الآيدي (ID) الخاص بك كأدمن هنا لحماية الميزة (تأكد من كتابة الآيدي الخاص بك)
+# معرف التليجرام الخاص بك كأدمن (تم تحديثه بناءً على حسابك ليتعرف عليك البوت فوراً)
 ADMIN_ID = 6799806928  
 
 # --- دالة مساعدة لمعالجة دمج ملفات الـ PDF ---
@@ -33,6 +33,7 @@ def process_pdf_geometry(mode, original_path, output_path):
     elif mode == "replace":
         writer.append(COVER_PATH)
         reader = PdfReader(original_path)
+        # تخطي الصفحة الأولى (الفهرس 0) وإضافة باقي الصفحات
         for page_num in range(1, len(reader.pages)):
             writer.add_page(reader.pages[page_num])
     
@@ -75,24 +76,16 @@ async def register_student_to_supabase(user):
     except Exception as e:
         logger.error(f"Error registering student: {e}")
 
-# --- 3. ميزة التقاط وتعديل ملفات المدير مع الغلاف الذكي ---
+# --- 3. ميزة التقاط وتعديل ملفات المدير مع الغلاف الذكي والسريع ---
 async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     
     # التحقق أولاً إذا كان المرسل هو الأدمن
     if user_id == ADMIN_ID:
-        # حالة 1: الملف المرفوع مستند PDF (تطبيق منطق الغلاف الذكي)
+        # حالة 1: الملف المرفوع مستند PDF (إرسال الأزرار فوراً دون انتظار التحميل لتجنب الـ Timeout)
         if update.message.document and update.message.document.mime_type == "application/pdf":
-            loading_msg = await update.message.reply_text("⏳ جاري تحميل مستند الـ PDF لتجهيز خيارات الغلاف...")
-            
-            # تحميل الملف مؤقتاً إلى السيرفر
-            file = await context.bot.get_file(update.message.document.file_id)
-            input_filename = f"temp_{update.message.chat_id}.pdf"
-            await file.download_to_drive(input_filename)
-            await loading_msg.delete()
-
-            # حفظ المسار المؤقت في ذاكرة البوت
-            context.user_data["temp_pdf_path"] = input_filename
+            # حفظ المعرف المؤقت للملف في الذاكرة لتنزيله لاحقاً عند الحاجة
+            context.user_data["pending_file_id"] = update.message.document.file_id
 
             # إنشاء لوحة تحكم تفاعلية مدمجة (Inline Buttons)
             keyboard = [
@@ -101,12 +94,11 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("⏩ تخطي وإرسال المعرف الحالي فوراً", callback_data="cover_skip")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("🎯 تم التقاط ملف PDF. اختر الإجراء المناسب لغلاف المكتبة التعليمية:", reply_markup=reply_markup)
+            await update.message.reply_text("🎯 تم التقاط ملف PDF بنجاح. اختر الإجراء المناسب لغلاف المكتبة التعليمية:", reply_markup=reply_markup)
             return
 
         # حالة 2: المرفق عبارة عن صورة (Photo) - إرسال المعرف فوراً
         elif update.message.photo:
-            # نأخذ أعلى جودة للصورة وهي دائماً آخر عنصر في القائمة
             f_id = update.message.photo[-1].file_id
             await update.message.reply_text(f"🖼️ تم التقاط معرف الصورة بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
             return
@@ -117,13 +109,11 @@ async def catch_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"🔊 تم التقاط معرف الملف الصوتي بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
             return
 
-        # حالة 4: أي مستند آخر ليس PDF (مثل الكليبات، الفيديوهات أو مستندات أخرى)
+        # حالة 4: أي مستند آخر ليس PDF (مثل الفيديوهات أو الملفات المضغوطة)
         elif update.message.document:
             f_id = update.message.document.file_id
             await update.message.reply_text(f"📄 تم التقاط معرف المستند بنجاح!\n\n<code>{f_id}</code>", parse_mode="HTML")
             return
-            
-    # إذا لم يكن المرسل هو الأدمن، يتم تجاهل المرفقات لكي لا تسبب تشتت للبوت الشجري
 
 # معالج ضغطات الأزرار المدمجة للأدمن
 async def handle_cover_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -134,14 +124,10 @@ async def handle_cover_callbacks(update: Update, context: ContextTypes.DEFAULT_T
     user_data = context.user_data
     
     if action == "cover_skip":
-        input_path = user_data.get("temp_pdf_path")
-        if input_path and os.path.exists(input_path):
-            os.remove(input_path)
         user_data.clear()
-        
-        # إرجاع الـ file_id الأصلي مباشرة
+        # إرجاع الـ file_id الأصلي مباشرة دون أي تعديل أو تحميل للملف
         f_id = query.message.reply_to_message.document.file_id
-        await query.edit_message_text(f"<code>{f_id}</code>", parse_mode="HTML")
+        await query.edit_message_text(f"⏩ تم التخطي. معرف الملف الأصلي لنسخه:\n\n<code>{f_id}</code>", parse_mode="HTML")
         return
 
     # تخزين نوع العملية المطلوبة (add أو replace)
@@ -191,29 +177,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = "👋 أهلاً بك في بوت المكتبة التعليمية لطلاب البكالوريا العلمي.\n\nيرجى استخدام القائمة السفلية للتصفح السلس والمنظم للشجرة الدراسية:"
     await show_menu(update, context, parent_id=None, text_message=welcome_text)
 
-# --- 7. المعالج الرئيسي لمنطق البوت الشجري واستقبل اسم الملف للمدير ---
+# --- 7. المعالج الرئيسي لمنطق البوت الشجري واستقبال اسم الملف للمدير ---
 async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # فحص إذا كان البوت ينتظر من الأدمن كتابة اسم الملف الجديد لدمجه
+    # فحص إذا كان البوت ينتظر من الأدمن كتابة اسم الملف الجديد لبدء التحميل والدمج
     if update.message.from_user.id == ADMIN_ID and user_data.get("awaiting_filename"):
-        input_path = user_data.get("temp_pdf_path")
+        pending_file_id = user_data.get("pending_file_id")
         mode = user_data.get("cover_action")
         
-        if not input_path or not os.path.exists(input_path):
-            await update.message.reply_text("❌ حدث خطأ، لم يتم العثور على الملف المؤقت. يرجى إعادة رفع الملف مجدداً.")
+        if not pending_file_id:
+            await update.message.reply_text("❌ حدث خطأ، لم يتم العثور على بيانات الملف في الذاكرة. يرجى إعادة رفعه.")
             user_data.clear()
             return
             
-        # التأكد من لاحقة الملف لتظهر بشكل صحيح للطلاب
         custom_name = text if text.lower().endswith(".pdf") else f"{text}.pdf"
         output_path = f"ready_{custom_name}"
+        input_path = f"temp_{update.message.chat_id}.pdf"
         
-        prog_msg = await update.message.reply_text("⚙️ جاري معالجة وتعديل ملف الـ PDF وتطبيق الغلاف الحصري...")
+        prog_msg = await update.message.reply_text("⚙️ جاري تحميل الملف ومعالجته مع غلاف كانفا... قد يستغرق ذلك لحظات حسب حجم الملف.")
         
         try:
-            # دمج أو استبدال الصفحات مع الغلاف
+            # تحميل الملف الفعلي للسيرفر في هذه الخطوة المتأخرة لحماية الاتصال من الـ Timeout
+            file = await context.bot.get_file(pending_file_id)
+            await file.download_to_drive(input_path)
+            
+            # دمج أو استبدال الصفحات مع الغلاف الثابت
             await asyncio.to_thread(process_pdf_geometry, mode, input_path, output_path)
             
             # إرسال الملف الجديد للأدمن بالاسم الجديد المحدد للالتقاط
@@ -224,21 +214,24 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     caption=f"✅ تم تجهيز غلاف المكتبة بنجاح باسم:\n`{custom_name}`"
                 )
             
-            # إرسال معرف الملف فقط لتسهيل النسخ السريع بضغطة واحدة
+            # إرسال معرف الملف المعدل والجديد كلياً لنسخه واستخدامه في السوبابيس بلمسة واحدة
             await update.message.reply_text(f"<code>{sent_doc.document.file_id}</code>", parse_mode="HTML")
             
         except Exception as e:
             logger.error(f"خطأ أثناء معالجة ملف PDF للمدير: {e}")
-            await update.message.reply_text("❌ حدث خطأ داخلي أثناء معالجة الملف وتوليده.")
+            await update.message.reply_text("❌ حدث خطأ أثناء معالجة الملف، تأكد من أن الملف سليم ولا يتجاوز حجمه الحدود المسموحة للبوتات.")
         finally:
-            # تنظيف السيرفر من الملفات المؤقتة فوراً
-            if os.path.exists(prog_msg.message_id): await prog_msg.delete()
+            # تنظيف السيرفر وحذف الملفات المؤقتة فوراً لتوفير مساحة الـ VPS / Railway
+            try:
+                await prog_msg.delete()
+            except:
+                pass
             if os.path.exists(input_path): os.remove(input_path)
             if os.path.exists(output_path): os.remove(output_path)
             user_data.clear()
         return
 
-    # أزرار التنقل الثابتة
+    # أزرار التنقل الثابتة للطلاب والمشرفين
     if text == "🏠 القائمة الرئيسية":
         user_data.clear()
         await show_menu(update, context, parent_id=None, text_message="🔙 تم العودة للقائمة الرئيسية للخدمات:")
@@ -256,7 +249,7 @@ async def handle_bot_logic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_menu(update, context, parent_id=None)
         return
 
-    # فحص الأزرار الديناميكية المتاحة في المجلد الحالي
+    # فحص الأزرار الديناميكية المتاحة في المجلد الحالي بالشجرة
     current_node = user_data.get("current_node")
     items = await get_menu_items(current_node)
     selected = next((i for i in items if i['label'] == text), None)
@@ -312,11 +305,11 @@ def main():
     
     application.job_queue.run_repeating(broadcast_announcement, interval=3600, first=10)
 
-    # معالجات البوت (تم تصحيح السطر المسبب للكراش بالكامل هنا)
+    # معالجات البوت المستقرة
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_cover_callbacks, pattern="^cover_"))
     
-    # التقاط كافة أنواع الميديا والصور والملفات من الأدمن للفحص والفرز الذكي
+    # التقاط كافة أنواع الميديا والصور والملفات من الأدمن للفحص والفرز الذكي والسريع
     application.add_handler(MessageHandler(filters.Document.ALL | filters.AUDIO | filters.PHOTO, catch_file_id))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bot_logic))
 
@@ -325,4 +318,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+            
